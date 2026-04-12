@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Users, ChevronRight } from 'lucide-react'
+import { Users, ChevronRight, Copy, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 function WaIcon({ size = 13 }) {
@@ -14,17 +14,24 @@ function WaIcon({ size = 13 }) {
 export default function TeamsPage() {
   const [teams,   setTeams]   = useState([])
   const [loading, setLoading] = useState(true)
+  const [copied,  setCopied]  = useState(null)
 
   useEffect(() => { fetchTeams() }, [])
 
   async function fetchTeams() {
     const { data } = await supabase
       .from('teams')
-      .select('*, owner:profiles!owner_id(username, avatar_url, whatsapp)')
+      .select('*, owner:profiles!owner_id(username, avatar_url, whatsapp, efootball_id)')
       .eq('status', 'approved')
       .order('name')
     setTeams(data || [])
     setLoading(false)
+  }
+
+  function copyId(id) {
+    navigator.clipboard.writeText(id)
+    setCopied(id)
+    setTimeout(() => setCopied(null), 2000)
   }
 
   return (
@@ -66,7 +73,20 @@ export default function TeamsPage() {
                         </a>
                       )}
                     </div>
-                    <div className="text-xs text-white/40">@{team.owner?.username}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-white/40">@{team.owner?.username}</span>
+                      {team.owner?.efootball_id && (
+                        <button
+                          onClick={e => { e.preventDefault(); copyId(team.owner.efootball_id) }}
+                          className="flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition-colors"
+                          title="Copy ID eFootball">
+                          <span className="font-mono">{team.owner.efootball_id}</span>
+                          {copied === team.owner.efootball_id
+                            ? <Check size={11} className="text-accent-green" />
+                            : <Copy size={11} />}
+                        </button>
+                      )}
+                    </div>
                   </Link>
                   <Link to={`/teams/${team.id}`}>
                     <ChevronRight size={15} className="text-white/30" />

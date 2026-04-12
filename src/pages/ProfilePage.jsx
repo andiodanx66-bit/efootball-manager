@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Save, Lock, User, Shield, X, Phone } from 'lucide-react'
+import { Save, Lock, User, Shield, X, Phone, Gamepad2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 
@@ -22,8 +22,9 @@ function compressImage(file, maxSize = 256, quality = 0.8) {
 
 export default function ProfilePage() {
   const { user, profile, fetchProfile } = useAuth()
-  const [username,   setUsername]   = useState(profile?.username || '')
-  const [whatsapp,   setWhatsapp]   = useState(profile?.whatsapp || '')
+  const [username,     setUsername]     = useState(profile?.username || '')
+  const [whatsapp,     setWhatsapp]     = useState(profile?.whatsapp || '')
+  const [efootballId,  setEfootballId]  = useState(profile?.efootball_id || '')
   const [preview,    setPreview]    = useState(profile?.avatar_url || null)
   const [file,       setFile]       = useState(null)
   const [team,       setTeam]       = useState(null)
@@ -66,7 +67,7 @@ export default function ProfilePage() {
 
     const { error: profileError } = await supabase
       .from('profiles')
-      .update({ username: username.trim(), avatar_url, whatsapp: whatsapp.trim() || null })
+      .update({ username: username.trim(), avatar_url, whatsapp: whatsapp.trim() || null, efootball_id: efootballId.trim() || null })
       .eq('id', user.id)
 
     if (profileError) { setMsg(profileError.message); setSaving(false); return }
@@ -118,6 +119,13 @@ export default function ProfilePage() {
               <Phone size={13} /> No. WhatsApp
             </label>
             <input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className="input" placeholder="628xxxxxxxxxx" />
+          </div>
+
+          <div>
+            <label className="text-sm text-white/60 mb-1.5 block flex items-center gap-1.5">
+              <Gamepad2 size={13} /> ID eFootball
+            </label>
+            <input value={efootballId} onChange={e => setEfootballId(e.target.value)} className="input" placeholder="ID eFootball kamu" />
           </div>
 
           {team && (

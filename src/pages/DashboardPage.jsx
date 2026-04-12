@@ -53,7 +53,6 @@ export default function DashboardPage() {
           .select('*, home_team:teams!home_team_id(id,name,owner:profiles!owner_id(whatsapp)), away_team:teams!away_team_id(id,name,owner:profiles!owner_id(whatsapp)), season:seasons(name)')
           .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
           .order('round')
-          .limit(10)
         setMyMatches(matchData || [])
       }
     }
@@ -66,10 +65,15 @@ export default function DashboardPage() {
       m.status !== 'approved'
   }
 
+  const myDone  = myMatches.filter(m => m.status === 'approved').length
+  const myTotal = myMatches.length
+
+  const myPending = myMatches.filter(m => m.status === 'pending_result').length
+
   const cards = [
     { label: 'Total Kompetisi', value: stats.seasons, icon: Trophy,   color: 'brand',  to: '/seasons' },
-    { label: 'Match Selesai',   value: stats.matches, icon: Calendar, color: 'green',  to: '/seasons' },
-    { label: 'Hasil Pending',   value: stats.pending, icon: Clock,    color: 'yellow', to: isAdmin ? '/admin' : '/seasons' },
+    { label: 'Match Dimainkan', value: myTeamId ? `${myDone}/${myTotal}` : stats.matches, icon: Calendar, color: 'green', to: '/seasons' },
+    { label: 'Hasil Pending',   value: isAdmin ? stats.pending : myPending, icon: Clock, color: 'yellow', to: isAdmin ? '/admin' : '/seasons' },
   ]
 
   const colorMap = {
@@ -102,64 +106,69 @@ export default function DashboardPage() {
       </div>
 
       {myTeamId && (
-        <div className="card">
-          <div className="p-5 border-b border-white/10">
-            <h2 className="font-display font-semibold text-lg flex items-center gap-2">
-              <Swords size={18} className="text-brand-400" /> Jadwal Tim Saya
-            </h2>
-          </div>
+        <div className="space-y-3">
+          <h2 className="font-display font-semibold text-lg flex items-center gap-2">
+            <Swords size={18} className="text-brand-400" /> Jadwal Tim Saya
+          </h2>
           {myMatches.length === 0 ? (
-            <div className="p-8 text-center text-white/30 text-sm">Belum ada jadwal</div>
+            <div className="card p-8 text-center text-white/30 text-sm">Belum ada jadwal</div>
           ) : (
-            <div className="divide-y divide-white/5">
-              {myMatches.map(m => {
-                const isHome = myTeamId === m.home_team_id
-                const oppWa  = isHome ? m.away_team?.owner?.whatsapp : m.home_team?.owner?.whatsapp
-                return (
-                  <div key={m.id} className="flex flex-wrap items-center px-4 py-3 gap-x-2 gap-y-1.5 table-row-hover">
-                    {/* Match row */}
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-sm font-medium truncate max-w-[80px]">{m.home_team?.name}</span>
-                        {!isHome && oppWa && (
-                          <a href={`https://kirimwa.id/${oppWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-                            className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0">
-                            <WaIcon />
-                          </a>
-                        )}
-                      </div>
-                      <div
-                        className={`font-display font-bold text-sm bg-pitch-dark rounded-lg px-2 py-1 w-12 text-center shrink-0 ${m.screenshot_url ? 'cursor-pointer hover:bg-white/10' : ''}`}
-                        onClick={() => m.screenshot_url && setImgModal(m.screenshot_url)}
-                      >
-                        {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
-                      </div>
-                      <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-sm font-medium truncate max-w-[80px]">{m.away_team?.name}</span>
-                        {isHome && oppWa && (
-                          <a href={`https://kirimwa.id/${oppWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-                            className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0">
-                            <WaIcon />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                    {/* Badge & action */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-xs text-white/40 hidden sm:inline">{m.season?.name}</span>
-                      {canInput(m) && (
-                        <button onClick={() => setScoreModal(m)} className="badge-blue cursor-pointer hover:bg-brand-500/30 transition-colors p-1.5 flex items-center">
-                          <Pencil size={13} />
-                        </button>
-                      )}
-                      {m.status === 'pending_result' && <span className={`${statusBadge.pending_result} flex items-center`}><Clock size={11} /></span>}
-                      {m.status === 'approved' && <span className={statusBadge.approved}>✓</span>}
-                      {m.status === 'scheduled' && !canInput(m) && <span className={statusBadge.scheduled}>–</span>}
-                    </div>
+            (() => {
+              const rounds = [...new Set(myMatches.map(m => m.round))].sort((a, b) => a - b)
+              return rounds.map(r => (
+                <div key={r} className="card overflow-hidden">
+                  <div className="px-5 py-2.5 border-b border-white/10 bg-pitch-dark/50">
+                    <span className="font-display font-semibold text-sm text-brand-400">Pekan {r}</span>
                   </div>
-                )
-              })}
-            </div>
+                  <div className="divide-y divide-white/5">
+                    {myMatches.filter(m => m.round === r).map(m => {
+                      const isHome = myTeamId === m.home_team_id
+                      const oppWa  = isHome ? m.away_team?.owner?.whatsapp : m.home_team?.owner?.whatsapp
+                      return (
+                        <div key={m.id} className="flex flex-wrap items-center px-4 py-3 gap-x-2 gap-y-1.5 table-row-hover">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span className="text-sm font-medium truncate max-w-[80px]">{m.home_team?.name}</span>
+                              {!isHome && oppWa && (
+                                <a href={`https://kirimwa.id/${oppWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                                  className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0">
+                                  <WaIcon />
+                                </a>
+                              )}
+                            </div>
+                            <div
+                              className={`font-display font-bold text-sm bg-pitch-dark rounded-lg px-2 py-1 w-12 text-center shrink-0 ${m.screenshot_url ? 'cursor-pointer hover:bg-white/10' : ''}`}
+                              onClick={() => m.screenshot_url && setImgModal(m.screenshot_url)}
+                            >
+                              {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
+                            </div>
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span className="text-sm font-medium truncate max-w-[80px]">{m.away_team?.name}</span>
+                              {isHome && oppWa && (
+                                <a href={`https://kirimwa.id/${oppWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                                  className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0">
+                                  <WaIcon />
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {canInput(m) && (
+                              <button onClick={() => setScoreModal(m)} className="badge-blue cursor-pointer hover:bg-brand-500/30 transition-colors p-1.5 flex items-center">
+                                <Pencil size={13} />
+                              </button>
+                            )}
+                            {m.status === 'pending_result' && <span className={`${statusBadge.pending_result} flex items-center`}><Clock size={11} /></span>}
+                            {m.status === 'approved' && <span className={statusBadge.approved}>✓</span>}
+                            {m.status === 'scheduled' && !canInput(m) && <span className={statusBadge.scheduled}>–</span>}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))
+            })()
           )}
         </div>
       )}

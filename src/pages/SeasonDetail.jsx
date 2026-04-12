@@ -540,67 +540,121 @@ function StandingsTable({ rows }) {
 
 function TeamsTab({ seasonId, teams, isAdmin, onUpdate, hasMatches }) {
   const [allTeams,  setAllTeams]  = useState([])
-  const [addTeamId, setAddTeamId] = useState('')
+  const [showModal, setShowModal] = useState(false)
+  const [selected,  setSelected]  = useState([])
+  const [saving,    setSaving]    = useState(false)
 
   useEffect(() => {
-    supabase.from('teams').select('id,name').eq('status', 'approved').order('name')
+    supabase.from('teams').select('id,name,owner:profiles!owner_id(avatar_url)').eq('status', 'approved').order('name')
       .then(({ data }) => setAllTeams(data || []))
   }, [])
 
   const enrolledIds = teams.map(t => t.team_id)
-  const available   = allTeams.filter(t => !enrolledIds.includes(t.id))
 
-  async function addTeam() {
-    if (!addTeamId) return
-    await supabase.from('season_teams').insert({ season_id: seasonId, team_id: addTeamId })
-    setAddTeamId('')
-    onUpdate()
+  function openModal() {
+    setSelected([...enrolledIds])
+    setShowModal(true)
   }
 
-  async function removeTeam(stId) {
-    if (!window.confirm('Hapus tim dari kompetisi ini?')) return
-    await supabase.from('season_teams').delete().eq('id', stId)
+  function toggleSelect(id) {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  async function saveTeams() {
+    setSaving(true)
+    const toAdd    = selected.filter(id => !enrolledIds.includes(id))
+    const toRemove = enrolledIds.filter(id => !selected.includes(id))
+
+    if (toAdd.length > 0) {
+      await supabase.from('season_teams').insert(toAdd.map(team_id => ({ season_id: seasonId, team_id })))
+    }
+    if (toRemove.length > 0) {
+      await supabase.from('season_teams').delete()
+        .in('team_id', toRemove)
+        .eq('season_id', seasonId)
+    }
+
+    setSaving(false)
+    setShowModal(false)
     onUpdate()
   }
 
   return (
-    <div className="card overflow-hidden">
-      {isAdmin && !hasMatches && (
-        <div className="px-5 py-3 border-b border-white/10 flex gap-3">
-          <select value={addTeamId} onChange={e => setAddTeamId(e.target.value)} className="input text-sm flex-1">
-            <option value="">Pilih tim untuk ditambahkan...</option>
-            {available.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-          <button onClick={addTeam} disabled={!addTeamId} className="btn-primary text-sm px-4 flex items-center gap-1">
-            <Plus size={14} /> Tambah
-          </button>
-        </div>
-      )}
-      {isAdmin && hasMatches && (
-        <div className="px-5 py-2 border-b border-white/10 bg-accent-yellow/5">
-          <p className="text-xs text-accent-yellow/80">Jadwal sudah di-generate, tim tidak bisa diubah.</p>
-        </div>
-      )}
-      <div className="divide-y divide-white/5">
-        {teams.map((st, i) => (
-          <div key={st.id} className="flex items-center gap-4 px-5 py-3">
-            <span className="w-6 text-center text-white/30 font-mono text-xs">{i + 1}</span>
-            <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold font-display text-brand-400 overflow-hidden">
-              {st.team?.owner?.avatar_url
-                ? <img src={st.team.owner.avatar_url} alt="" className="w-full h-full object-cover" />
-                : st.team?.name?.[0]}
+    <>
+      <div className="card overflow-hidden">
+        {isAdmin && !hasMatches && (
+          <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
+            <span className="text-sm text-white/50">{teams.length} tim terdaftar</span>
+            <button onClick={openModal} className="btn-primary text-sm flex items-center gap-1.5 py-2">
+              <Plus size={14} /> Atur Tim
+            </button>
+          </div>
+        )}
+        {isAdmin && hasMatches && (
+          <div className="px-5 py-2 border-b border-white/10 bg-accent-yellow/5">
+            <p className="text-xs text-accent-yellow/80">Jadwal sudah di-generate, tim tidak bisa diubah.</p>
+          </div>
+        )}
+        <div className="divide-y divide-white/5">
+          {teams.map((st, i) => (
+            <div key={st.id} className="flex items-center gap-4 px-5 py-3">
+              <span className="w-6 text-center text-white/30 font-mono text-xs">{i + 1}</span>
+              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold font-display text-brand-400 overflow-hidden">
+                {st.team?.owner?.avatar_url
+                  ? <img src={st.team.owner.avatar_url} alt="" className="w-full h-full object-cover" />
+                  : st.team?.name?.[0]}
+              </div>
+              <Link to={`/teams/${st.team_id}`} className="font-medium flex-1 hover:text-brand-300 transition-colors">{st.team?.name}</Link>
+              {st.group_id && <span className="badge-purple">Grup {st.group_id}</span>}
             </div>
-            <Link to={`/teams/${st.team_id}`} className="font-medium flex-1 hover:text-brand-300 transition-colors">{st.team?.name}</Link>
-            {st.group_id && <span className="badge-purple">Grup {st.group_id}</span>}
-            {isAdmin && !hasMatches && (
-              <button onClick={() => removeTeam(st.id)} className="text-white/20 hover:text-accent-red transition-colors">
-                <XCircle size={15} />
-              </button>
+          ))}
+          {teams.length === 0 && <div className="p-8 text-center text-white/30 text-sm">Belum ada tim</div>}
+        </div>
+      </div>
+
+      {showModal && createPortal(
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+          <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
+              <h2 className="font-display font-bold text-base">Atur Tim Peserta</h2>
+              <button onClick={() => setShowModal(false)} className="text-white/40 hover:text-white"><XCircle size={18} /></button>
+            </div>
+
+            {allTeams.length === 0 ? (
+              <div className="p-8 text-center text-white/30 text-sm">Belum ada tim terdaftar</div>
+            ) : (
+              <>
+                <div className="divide-y divide-white/5 overflow-y-auto flex-1">
+                  {allTeams.map(t => {
+                    const checked = selected.includes(t.id)
+                    return (
+                      <button key={t.id} onClick={() => toggleSelect(t.id)}
+                        className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-600/15' : 'hover:bg-white/5'}`}>
+                        <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-sm font-bold font-display text-brand-400 overflow-hidden shrink-0">
+                          {t.owner?.avatar_url
+                            ? <img src={t.owner.avatar_url} alt="" className="w-full h-full object-cover" />
+                            : t.name[0]}
+                        </div>
+                        <span className="font-medium text-sm flex-1">{t.name}</span>
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-white/20'}`}>
+                          {checked && <Check size={12} className="text-white" />}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="px-5 py-4 border-t border-white/10 flex gap-3 shrink-0">
+                  <button onClick={() => setShowModal(false)} className="btn-secondary flex-1 text-sm">Batal</button>
+                  <button onClick={saveTeams} disabled={saving} className="btn-primary flex-1 text-sm">
+                    {saving ? 'Menyimpan...' : 'Simpan'}
+                  </button>
+                </div>
+              </>
             )}
           </div>
-        ))}
-        {teams.length === 0 && <div className="p-8 text-center text-white/30 text-sm">Belum ada tim</div>}
-      </div>
-    </div>
+        </div>,
+        document.body
+      )}
+    </>
   )
 }
