@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom'
 import { useState } from 'react'
 import {
-  LayoutDashboard, Trophy, Users, LogOut, Menu, Swords, Shield
+  LayoutDashboard, Trophy, Users, LogOut, Menu, Shield
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -9,7 +9,6 @@ const navItems = [
   { to: '/',           label: 'Dashboard',   icon: LayoutDashboard, end: true },
   { to: '/seasons',    label: 'Kompetisi',   icon: Trophy },
   { to: '/teams',      label: 'Tim',         icon: Users },
-  { to: '/statistics', label: 'Statistik',   icon: Swords },
 ]
 
 export default function Layout() {
