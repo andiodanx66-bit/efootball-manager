@@ -39,7 +39,10 @@ export default function MatchesPage() {
   }
 
   async function approveMatch(id) {
-    await supabase.from('matches').update({ status: 'approved' }).eq('id', id)
+    await supabase.from('matches').update({
+      status: 'approved',
+      approved_at: new Date().toISOString()
+    }).eq('id', id)
     fetchAll()
   }
 
@@ -163,7 +166,8 @@ function ScoreModal({ match, isAdmin, onClose, onSaved }) {
     await supabase.from('matches').update({
       home_score: parseInt(homeScore),
       away_score: parseInt(awayScore),
-      status: newStatus
+      status: newStatus,
+      approved_at: isAdmin ? new Date().toISOString() : null
     }).eq('id', match.id)
     setSaving(false)
     onSaved()

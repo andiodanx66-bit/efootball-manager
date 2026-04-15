@@ -21,6 +21,7 @@ export default function SeasonDetail() {
   const [genLoading, setGenLoading] = useState(false)
   const [showGenModal, setShowGenModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [imgModal, setImgModal] = useState(null)
 
   const navigate = useNavigate()
 
@@ -144,7 +145,45 @@ export default function SeasonDetail() {
 
       {/* Tab content */}
       {tab === 'matches' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Hasil Terbaru Section */}
+          {matches.filter(m => m.status === 'approved').length > 0 && (
+            <div className="space-y-3">
+              <h2 className="font-display font-semibold text-sm flex items-center gap-2 text-white/50 px-1 uppercase tracking-wider">
+                <Trophy size={14} className="text-brand-400" /> ringkasan pertandingan
+              </h2>
+              <div className="card overflow-hidden divide-y divide-white/5 max-h-[600px] overflow-y-auto custom-scrollbar">
+                {matches
+                  .filter(m => m.status === 'approved')
+                  .sort((a, b) => {
+                    const dateA = a.approved_at ? new Date(a.approved_at).getTime() : 0
+                    const dateB = b.approved_at ? new Date(b.approved_at).getTime() : 0
+                    return dateB - dateA
+                  })
+                  .map(m => (
+                    <div key={m.id} className="flex flex-wrap items-center px-4 py-3 gap-x-2 gap-y-1.5 table-row-hover">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <span className="text-sm font-medium truncate max-w-[80px]">{m.home_team?.name}</span>
+                        <div
+                          className={`font-display font-bold text-sm bg-pitch-dark rounded-lg px-2 py-1 w-12 text-center shrink-0 ${m.screenshot_url ? 'cursor-pointer hover:bg-white/10' : ''}`}
+                          onClick={() => m.screenshot_url && setImgModal(m.screenshot_url)}
+                        >
+                          {m.home_score}–{m.away_score}
+                        </div>
+                        <span className="text-sm font-medium truncate max-w-[80px]">{m.away_team?.name}</span>
+                      </div>
+                      <div className="text-[10px] text-white/30 font-mono uppercase tracking-tighter shrink-0 flex flex-col items-end">
+                        <span>{m.stage === 'league' ? `Pekan ${m.round}` : m.stage}</span>
+                        {m.approved_at && (
+                          <span>{new Date(m.approved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
           {matches.length === 0 ? (
             <div className="card p-10 text-center text-white/30">
               <Calendar size={36} className="mx-auto mb-3 opacity-30" />
@@ -212,6 +251,13 @@ export default function SeasonDetail() {
           </div>
         </div>
       )}
+
+      {imgModal && createPortal(
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setImgModal(null)}>
+          <img src={imgModal} alt="bukti" className="max-w-full max-h-full rounded-xl object-contain" />
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
@@ -251,7 +297,10 @@ function MatchList({ matches, isAdmin, myTeamId, onUpdate, season }) {
   }
 
   async function approveResult(match) {
-    await supabase.from('matches').update({ status: 'approved' }).eq('id', match.id)
+    await supabase.from('matches').update({
+      status: 'approved',
+      approved_at: new Date().toISOString()
+    }).eq('id', match.id)
     onUpdate()
   }
 
@@ -384,7 +433,8 @@ function ScoreModal({ match, isAdmin, onClose, onSaved }) {
       home_score: parseInt(homeScore),
       away_score: parseInt(awayScore),
       screenshot_url,
-      status: isAdmin ? 'approved' : 'pending_result'
+      status: isAdmin ? 'approved' : 'pending_result',
+      approved_at: isAdmin ? new Date().toISOString() : null
     }).eq('id', match.id)
     setSaving(false)
     onSaved()
