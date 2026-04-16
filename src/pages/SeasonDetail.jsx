@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { Trophy, Users, Calendar, BarChart2, Play, Settings, ArrowLeft, Star, Swords, Plus, XCircle, Clock, Pencil, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -12,11 +12,12 @@ const statusLabel = { draft: 'Draft', active: 'Berjalan', finished: 'Selesai' }
 export default function SeasonDetail() {
   const { id } = useParams()
   const { isAdmin, user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [season,  setSeason]  = useState(null)
   const [teams,   setTeams]   = useState([])
   const [matches, setMatches] = useState([])
   const [myTeamId, setMyTeamId] = useState(null)
-  const [tab,     setTab]     = useState('matches')
+  const [tab,     setTab]     = useState(searchParams.get('tab') || 'matches')
   const [loading, setLoading] = useState(true)
   const [genLoading, setGenLoading] = useState(false)
   const [showGenModal, setShowGenModal] = useState(false)
@@ -136,7 +137,7 @@ export default function SeasonDetail() {
       {/* Tabs */}
       <div className="flex gap-1 bg-pitch-mid p-1 rounded-xl w-fit">
         {(isAdmin ? ['matches','standings','teams'] : ['matches','standings']).map(t => (
-          <button key={t} onClick={() => setTab(t)}
+          <button key={t} onClick={() => { setTab(t); setSearchParams({ tab: t }) }}
             className={`px-4 py-2 rounded-lg text-sm font-display font-medium transition-all ${tab === t ? 'bg-brand-600 text-white' : 'text-white/50 hover:text-white'}`}>
             {t === 'matches' ? 'Jadwal & Hasil' : t === 'standings' ? 'Klasemen' : 'Tim'}
           </button>
@@ -562,14 +563,14 @@ function StandingsTable({ rows }) {
             <tr key={r.team_id} className="table-row-hover">
               <td className="pl-5 pr-1 py-2.5 text-white/40 font-mono text-xs">{i + 1}</td>
               <td className="pl-1 pr-2 py-2.5">
-                <div className="flex items-center gap-2">
+                <Link to={`/teams/${r.team_id}`} className="flex items-center gap-2 hover:text-brand-400 transition-colors group">
                   <div className="w-6 h-6 rounded bg-white/10 flex items-center justify-center text-xs font-bold font-display text-brand-400 overflow-hidden shrink-0">
                     {r.avatar_url
                       ? <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
                       : r.team_name?.[0]}
                   </div>
-                  <span className="font-medium">{r.team_name}</span>
-                </div>
+                  <span className="font-medium group-hover:underline">{r.team_name}</span>
+                </Link>
               </td>
               <td className="px-2 py-2.5 text-center text-white/60">{r.played}</td>
               <td className="px-2 py-2.5 text-center text-accent-green">{r.won}</td>

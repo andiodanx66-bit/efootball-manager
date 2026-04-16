@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { BarChart2, Trophy } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -104,12 +105,12 @@ function StandingsTable({ rows }) {
             <tr key={r.team_id} className={`table-row-hover ${i < 4 ? 'border-l-2 border-l-brand-500/30' : ''}`}>
               <td className="px-5 py-3 text-white/40 font-mono text-xs text-center">{i + 1}</td>
               <td className="px-2 py-3">
-                <div className="flex items-center gap-2">
+                <Link to={`/teams/${r.team_id}`} className="flex items-center gap-2 hover:text-brand-400 transition-colors group">
                   <div className="w-6 h-6 rounded bg-white/10 flex items-center justify-center text-xs font-bold text-brand-400">
                     {r.team_name?.[0]}
                   </div>
-                  <span className="font-medium">{r.team_name}</span>
-                </div>
+                  <span className="font-medium group-hover:underline">{r.team_name}</span>
+                </Link>
               </td>
               <td className="px-3 py-3 text-center text-white/60">{r.played}</td>
               <td className="px-3 py-3 text-center text-accent-green font-medium">{r.won}</td>
