@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth'
 
 export default function SeasonFormModal({ season, onClose, onSaved }) {
   const { user, isAdmin } = useAuth()
-  const [form, setForm] = useState({ name: '', type: 'league', legs: 1 })
+  const [form, setForm] = useState({ name: '', type: 'league', legs: 1, num_groups: 4 })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -17,10 +17,11 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
         name: season.name || '',
         type: season.type || 'league',
         legs: season.legs || 1,
+        num_groups: season.num_groups || 4,
         status: season.status || 'active'
       })
     } else {
-      setForm({ name: '', type: 'league', legs: 1 })
+      setForm({ name: '', type: 'league', legs: 1, num_groups: 4 })
     }
     setError('')
   }, [season])
@@ -38,6 +39,7 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
           name: form.name.trim(),
           type: form.type,
           legs: parseInt(form.legs),
+          num_groups: form.type === 'champions' ? parseInt(form.num_groups) : null,
           status: form.status
         }).eq('id', season.id)
         if (err) throw err
@@ -46,6 +48,7 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
           name: form.name.trim(),
           type: form.type,
           legs: parseInt(form.legs),
+          num_groups: form.type === 'champions' ? parseInt(form.num_groups) : null,
           start_date: new Date().toISOString().slice(0, 10),
           created_by: user.id,
           status: 'active'
@@ -103,6 +106,20 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
                   <button key={n} type="button" onClick={() => setForm(p => ({ ...p, legs: n }))}
                     className={`rounded-xl p-3 text-center border transition-all ${parseInt(form.legs) === n ? 'border-brand-500 bg-brand-600/20 text-white' : 'border-white/10 text-white/50 hover:border-white/30'}`}>
                     <div className="font-display font-semibold text-sm">{n} Putaran</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {form.type === 'champions' && (
+            <div>
+              <label className="text-sm text-white/60 mb-1.5 block">Jumlah Grup</label>
+              <div className="grid grid-cols-5 gap-2">
+                {[2, 3, 4, 6, 8].map(n => (
+                  <button key={n} type="button" onClick={() => setForm(p => ({ ...p, num_groups: n }))}
+                    className={`rounded-xl p-3 text-center border transition-all ${parseInt(form.num_groups) === n ? 'border-brand-500 bg-brand-600/20 text-white' : 'border-white/10 text-white/50 hover:border-white/30'}`}>
+                    <div className="font-display font-semibold text-sm">{n}</div>
                   </button>
                 ))}
               </div>

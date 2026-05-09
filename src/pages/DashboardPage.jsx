@@ -50,7 +50,7 @@ export default function DashboardPage() {
       setMyTeamId(teamId)
       if (teamId) {
         const { data: matchData } = await supabase.from('matches')
-          .select('*, home_team:teams!home_team_id(id,name,owner:profiles!owner_id(whatsapp)), away_team:teams!away_team_id(id,name,owner:profiles!owner_id(whatsapp)), season:seasons(name)')
+          .select('*, home_team:teams!home_team_id(id,name,owner:profiles!owner_id(whatsapp)), away_team:teams!away_team_id(id,name,owner:profiles!owner_id(whatsapp)), season:seasons(id,name,type)')
           .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
           .order('round')
         setMyMatches(matchData || [])
@@ -113,62 +113,7 @@ export default function DashboardPage() {
           {myMatches.length === 0 ? (
             <div className="card p-8 text-center text-white/30 text-sm">Belum ada jadwal</div>
           ) : (
-            (() => {
-              const rounds = [...new Set(myMatches.map(m => m.round))].sort((a, b) => a - b)
-              return rounds.map(r => (
-                <div key={r} className="card overflow-hidden">
-                  <div className="px-5 py-2.5 border-b border-white/10 bg-pitch-dark/50">
-                    <span className="font-display font-semibold text-sm text-brand-400">Pekan {r}</span>
-                  </div>
-                  <div className="divide-y divide-white/5">
-                    {myMatches.filter(m => m.round === r).map(m => {
-                      const isHome = myTeamId === m.home_team_id
-                      const oppWa  = isHome ? m.away_team?.owner?.whatsapp : m.home_team?.owner?.whatsapp
-                      return (
-                        <div key={m.id} className="flex flex-wrap items-center px-4 py-3 gap-x-2 gap-y-1.5 table-row-hover">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <div className="flex items-center gap-1 min-w-0">
-                              <span className="text-sm font-medium truncate max-w-[80px]">{m.home_team?.name}</span>
-                              {!isHome && oppWa && (
-                                <a href={`https://kirimwa.id/${oppWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-                                  className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0">
-                                  <WaIcon />
-                                </a>
-                              )}
-                            </div>
-                            <div
-                              className={`font-display font-bold text-sm bg-pitch-dark rounded-lg px-2 py-1 w-12 text-center shrink-0 ${m.screenshot_url ? 'cursor-pointer hover:bg-white/10' : ''}`}
-                              onClick={() => m.screenshot_url && setImgModal(m.screenshot_url)}
-                            >
-                              {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
-                            </div>
-                            <div className="flex items-center gap-1 min-w-0">
-                              <span className="text-sm font-medium truncate max-w-[80px]">{m.away_team?.name}</span>
-                              {isHome && oppWa && (
-                                <a href={`https://kirimwa.id/${oppWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-                                  className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0">
-                                  <WaIcon />
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {canInput(m) && (
-                              <button onClick={() => setScoreModal(m)} className="badge-blue cursor-pointer hover:bg-brand-500/30 transition-colors p-1.5 flex items-center">
-                                <Pencil size={13} />
-                              </button>
-                            )}
-                            {m.status === 'pending_result' && <span className={`${statusBadge.pending_result} flex items-center`}><Clock size={11} /></span>}
-                            {m.status === 'approved' && <span className={statusBadge.approved}>✓</span>}
-                            {m.status === 'scheduled' && !canInput(m) && <span className={statusBadge.scheduled}>–</span>}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))
-            })()
+            <SeasonSlider matches={myMatches} myTeamId={myTeamId} canInput={canInput} onScoreClick={setScoreModal} onImgClick={setImgModal} />
           )}
         </div>
       )}
@@ -187,6 +132,166 @@ export default function DashboardPage() {
         </div>,
         document.body
       )}
+    </div>
+  )
+}
+
+function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick }) {
+  const KO_ROUNDS = [
+    { key: 'r16',   label: '16 Besar' },
+    { key: 'qf',    label: 'Perempat Final' },
+    { key: 'sf',    label: 'Semi Final' },
+    { key: 'final', label: 'Final' },
+  ]
+
+  // Kelompokkan per kompetisi
+  const seasonMap = {}
+  matches.forEach(m => {
+    const sid = m.season_id
+    if (!seasonMap[sid]) seasonMap[sid] = { name: m.season?.name || 'Kompetisi', type: m.season?.type || 'league', matches: [] }
+    seasonMap[sid].matches.push(m)
+  })
+  const seasons = Object.entries(seasonMap)
+  const [idx, setIdx] = useState(0)
+  const current = seasons[idx]
+
+  if (!current) return null
+  const [, { name, type, matches: sMatches }] = current
+
+  function renderMatchRow(m) {
+    const isHome = myTeamId === m.home_team_id
+    const oppWa  = isHome ? m.away_team?.owner?.whatsapp : m.home_team?.owner?.whatsapp
+    return (
+      <div key={m.id} className="flex flex-wrap items-center px-4 py-3 gap-x-2 gap-y-1.5 table-row-hover">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-sm font-medium truncate max-w-[80px]">{m.home_team?.name}</span>
+            {!isHome && oppWa && (
+              <a href={`https://kirimwa.id/${oppWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0"><WaIcon /></a>
+            )}
+          </div>
+          <div
+            className={`font-display font-bold text-sm bg-pitch-dark rounded-lg px-2 py-1 w-12 text-center shrink-0 ${m.screenshot_url ? 'cursor-pointer hover:bg-white/10' : ''}`}
+            onClick={() => m.screenshot_url && onImgClick(m.screenshot_url)}
+          >
+            {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
+          </div>
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="text-sm font-medium truncate max-w-[80px]">{m.away_team?.name}</span>
+            {isHome && oppWa && (
+              <a href={`https://kirimwa.id/${oppWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
+                className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0"><WaIcon /></a>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {canInput(m) && (
+            <button onClick={() => onScoreClick(m)} className="badge-blue cursor-pointer hover:bg-brand-500/30 transition-colors p-1.5 flex items-center">
+              <Pencil size={13} />
+            </button>
+          )}
+          {m.status === 'pending_result' && <span className={`${statusBadge.pending_result} flex items-center`}><Clock size={11} /></span>}
+          {m.status === 'approved' && <span className={statusBadge.approved}>✓</span>}
+          {m.status === 'scheduled' && !canInput(m) && <span className={statusBadge.scheduled}>–</span>}
+        </div>
+      </div>
+    )
+  }
+
+  function renderContent() {
+    if (type === 'champions') {
+      // Fase grup: kelompokkan per group_id
+      const groupMatches = sMatches.filter(m => m.group_id)
+      const koMatches    = sMatches.filter(m => KO_ROUNDS.some(k => k.key === m.stage))
+      const groups = [...new Set(groupMatches.map(m => m.group_id))].sort()
+
+      return (
+        <>
+          {groups.map(g => (
+            <div key={g} className="card overflow-hidden">
+              <div className="px-5 py-2.5 border-b border-white/10 bg-pitch-dark/50">
+                <span className="font-display font-semibold text-sm text-accent-purple">Grup {g}</span>
+              </div>
+              <div className="divide-y divide-white/5">
+                {groupMatches.filter(m => m.group_id === g).map(renderMatchRow)}
+              </div>
+            </div>
+          ))}
+          {KO_ROUNDS.map(ko => {
+            const roundMatches = koMatches.filter(m => m.stage === ko.key)
+            if (roundMatches.length === 0) return null
+            return (
+              <div key={ko.key} className="card overflow-hidden">
+                <div className="px-5 py-2.5 border-b border-white/10 bg-pitch-dark/50">
+                  <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
+                </div>
+                <div className="divide-y divide-white/5">
+                  {roundMatches.map(renderMatchRow)}
+                </div>
+              </div>
+            )
+          })}
+          {groups.length === 0 && koMatches.length === 0 && (
+            <div className="card p-6 text-center text-white/30 text-sm">Belum ada jadwal</div>
+          )}
+        </>
+      )
+    }
+
+    // Liga / Cup: per pekan
+    const rounds = [...new Set(sMatches.map(m => m.round))].sort((a, b) => a - b)
+
+    if (type === 'cup') {
+      return KO_ROUNDS.map(ko => {
+        const roundMatches = sMatches.filter(m => m.stage === ko.key)
+        if (roundMatches.length === 0) return null
+        return (
+          <div key={ko.key} className="card overflow-hidden">
+            <div className="px-5 py-2.5 border-b border-white/10 bg-pitch-dark/50">
+              <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
+            </div>
+            <div className="divide-y divide-white/5">
+              {roundMatches.map(renderMatchRow)}
+            </div>
+          </div>
+        )
+      })
+    }
+
+    return rounds.map(r => (
+      <div key={r} className="card overflow-hidden">
+        <div className="px-5 py-2.5 border-b border-white/10 bg-pitch-dark/50">
+          <span className="font-display font-semibold text-sm text-brand-400">Pekan {r}</span>
+        </div>
+        <div className="divide-y divide-white/5">
+          {sMatches.filter(m => m.round === r).map(renderMatchRow)}
+        </div>
+      </div>
+    ))
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Header slider */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <button
+            onClick={() => setIdx(i => Math.max(0, i - 1))}
+            disabled={idx === 0}
+            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-lg"
+          >‹</button>
+          <span className="font-display font-semibold text-sm text-brand-400 truncate">{name}</span>
+          <button
+            onClick={() => setIdx(i => Math.min(seasons.length - 1, i + 1))}
+            disabled={idx === seasons.length - 1}
+            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-lg"
+          >›</button>
+        </div>
+        <span className="text-xs text-white/30 shrink-0">{idx + 1} / {seasons.length}</span>
+      </div>
+
+      {renderContent()}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Trophy, ChevronRight, Star, Swords, Plus, Trash2, CheckCircle } from 'lucide-react'
+import { Trophy, ChevronRight, Star, Swords, Plus, Trash2 } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
@@ -127,12 +127,6 @@ function SeasonCard({ season, isAdmin, onUpdate }) {
           </div>
         </Link>
         <div className="flex items-center gap-2 shrink-0">
-          {isAdmin && season.status === 'active' && (
-            <button onClick={handleFinish}
-              className="p-1.5 text-white/30 hover:text-accent-green hover:bg-accent-green/10 rounded-lg transition-colors" title="Tandai Selesai">
-              <CheckCircle size={16} />
-            </button>
-          )}
           {isAdmin && (
             <button onClick={() => setDeleteModal(true)}
               className="p-1.5 text-white/30 hover:text-accent-red hover:bg-accent-red/10 rounded-lg transition-colors" title="Hapus">
