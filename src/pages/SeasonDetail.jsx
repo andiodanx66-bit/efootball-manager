@@ -1,10 +1,67 @@
-import { useEffect, useState, useRef } from 'react'
+﻿import { useEffect, useState, useRef } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
-import { Trophy, Users, Calendar, BarChart2, Play, Settings, ArrowLeft, Star, Swords, Plus, XCircle, Clock, Pencil, Check } from 'lucide-react'
+import { Trophy, Users, Calendar, BarChart2, Play, Settings, ArrowLeft, Star, Swords, Plus, XCircle, Clock, Pencil, Check, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { generateRoundRobin, generateKnockout, generateGroupStage } from '../utils/scheduler'
+
+// Scrollable tab container — hide scrollbar, support mouse/touch drag
+function TabScroller({ children, activeTab }) {
+  const ref = useRef(null)
+  const dragging = useRef(false)
+  const startX  = useRef(0)
+  const scrollL = useRef(0)
+
+  // Scroll aktif tab ke tengah saat tab berubah
+  useEffect(() => {
+    if (!ref.current) return
+    const active = ref.current.querySelector('[data-active="true"]')
+    if (!active) return
+    const container = ref.current
+    const btnLeft   = active.offsetLeft
+    const btnWidth  = active.offsetWidth
+    const target    = btnLeft - container.clientWidth / 2 + btnWidth / 2
+    container.scrollTo({ left: target, behavior: 'smooth' })
+  }, [activeTab])
+
+  function onMouseDown(e) {
+    dragging.current = true
+    startX.current  = e.pageX - ref.current.offsetLeft
+    scrollL.current = ref.current.scrollLeft
+    ref.current.style.cursor = 'grabbing'
+  }
+  function onMouseUp() {
+    dragging.current = false
+    ref.current.style.cursor = 'grab'
+  }
+  function onMouseMove(e) {
+    if (!dragging.current) return
+    e.preventDefault()
+    const x    = e.pageX - ref.current.offsetLeft
+    const walk = x - startX.current
+    ref.current.scrollLeft = scrollL.current - walk
+  }
+
+  return (
+    <div
+      ref={ref}
+      onMouseDown={onMouseDown}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+      onMouseMove={onMouseMove}
+      className="no-scrollbar"
+      style={{
+        overflowX: 'auto',
+        cursor: 'grab',
+        userSelect: 'none',
+        WebkitOverflowScrolling: 'touch',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
 
 const statusBadge = { draft: 'badge-gray', active: 'badge-green', finished: 'badge-red' }
 const statusLabel = { draft: 'Draft', active: 'Berjalan', finished: 'Selesai' }
@@ -199,17 +256,24 @@ export default function SeasonDetail() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="section-title">{season.name}</h1>
-              <span className={statusBadge[season.status]}>{statusLabel[season.status]}</span>
-              <span className={season.type === 'champions' ? 'badge-purple' : season.type === 'cup' ? 'badge-yellow' : 'badge-blue'}>
-                {season.type === 'league' ? 'Liga' : season.type === 'cup' ? 'Cup' : 'Champions'}
-              </span>
             </div>
-            <p className="text-white/40 text-sm mt-1">{teams.length} tim terdaftar · {matches.length} pertandingan</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-white/40 text-sm">{teams.length} tim terdaftar · {matches.length} pertandingan</p>
+            </div>
           </div>
           {isAdmin && (
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2 flex-wrap items-center">
+              {isAdmin && matches.length > 0 && (
+                <button
+                  onClick={() => setShowDeleteMatchesModal(true)}
+                  className="text-white/30 hover:text-accent-red transition-colors p-1.5"
+                  title="Hapus Semua Jadwal"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
               {(() => {
-                if (season.type === 'cup') return null // cup pakai manual di tab bagan
+                if (season.type === 'cup') return null
                 if (season.type === 'champions') {
                   return matches.filter(m => m.stage === 'group').length === 0 && teams.length >= 2 && (
                     <button onClick={() => setShowGenModal(true)} disabled={genLoading} className="btn-primary text-sm flex items-center gap-2">
@@ -227,19 +291,15 @@ export default function SeasonDetail() {
                   </button>
                 )
               })()}
-              {matches.length > 0 && (
-                <button onClick={() => setShowDeleteMatchesModal(true)} className="btn-danger text-sm flex items-center gap-2">
-                  <XCircle size={15} /> Hapus Semua Jadwal
-                </button>
-              )}
             </div>
           )}
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-pitch-mid p-1 rounded-xl w-fit flex-wrap">
-        {(() => {
+      <TabScroller activeTab={tab}>
+        <div className="flex gap-1 bg-pitch-mid p-1 rounded-xl w-max">
+          {(() => {
           const baseTabs = ['matches']
           if (season.type === 'champions') baseTabs.push('draw')
           if (season.type !== 'cup') baseTabs.push('standings')
@@ -247,13 +307,14 @@ export default function SeasonDetail() {
           if (season.type === 'cup') baseTabs.push('bracket')
           if (isAdmin) baseTabs.push('teams')
           return baseTabs.map(t => (
-            <button key={t} onClick={() => { setTab(t); setSearchParams({ tab: t }) }}
+            <button key={t} data-active={tab === t} onClick={() => { setTab(t); setSearchParams({ tab: t }) }}
               className={`px-4 py-2 rounded-lg text-sm font-display font-medium transition-all ${tab === t ? 'bg-brand-600 text-white' : 'text-white/50 hover:text-white'}`}>
               {t === 'matches' ? 'Jadwal & Hasil' : t === 'standings' ? 'Klasemen' : t === 'draw' ? 'Undian Grup' : t === 'knockout' ? 'Fase Knockout' : t === 'bracket' ? 'Bagan Cup' : 'Tim'}
             </button>
           ))
         })()}
-      </div>
+        </div>
+      </TabScroller>
 
       {/* Tab content */}
       {tab === 'matches' && (
@@ -1094,6 +1155,8 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
   const [manageModal, setManageModal]   = useState(null) // stage key
   const [imgModal, setImgModal]         = useState(null)
   const [generating, setGenerating]     = useState(false)
+  const [genLegModal, setGenLegModal]   = useState(null) // { fromStage, nextStage, nextLabel }
+  const [setupModal, setSetupModal]     = useState(false) // modal setup bracket awal
 
   useEffect(() => { fetchKo() }, [seasonId])
 
@@ -1115,7 +1178,7 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
   }
 
   // Generate babak berikutnya dari pemenang babak ini
-  async function generateNextRound(currentStage) {
+  async function generateNextRound(currentStage, legs = 1) {
     const currentRound = KO_ROUNDS.find(r => r.key === currentStage)
     if (!currentRound?.next) return
     const nextStage = currentRound.next
@@ -1125,15 +1188,49 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
     const allApproved = currentMatches.every(m => m.status === 'approved')
     if (!allApproved) { alert('Semua laga babak ini harus selesai dulu!'); return }
 
-    // Kumpulkan pemenang
-    const winners = currentMatches.map(m => {
-      if (m.home_score > m.away_score) return m.home_team_id
-      if (m.away_score > m.home_score) return m.away_team_id
-      return null // draw — tidak ada pemenang
-    }).filter(Boolean)
+    // Deteksi apakah babak ini 2 leg
+    const isTwoLegs = currentMatches.some(m => m.leg_number === 2)
+
+    let winners = []
+
+    if (isTwoLegs) {
+      // Kelompokkan per round (pair), hitung agregat
+      const pairs = {}
+      currentMatches.forEach(m => {
+        const key = m.round
+        if (!pairs[key]) pairs[key] = []
+        pairs[key].push(m)
+      })
+
+      for (const [, pairMatches] of Object.entries(pairs)) {
+        if (pairMatches.length < 2) { alert('Ada pasangan yang belum lengkap 2 leg!'); return }
+        // leg_number 1: home_team_id adalah tim A, away_team_id adalah tim B
+        const leg1 = pairMatches.find(m => m.leg_number === 1)
+        const leg2 = pairMatches.find(m => m.leg_number === 2)
+        if (!leg1 || !leg2) { alert('Data leg tidak lengkap!'); return }
+
+        const teamA = leg1.home_team_id
+        const teamB = leg1.away_team_id
+        // Agregat tim A = skor home di leg1 + skor away di leg2
+        const aggA = (leg1.home_score ?? 0) + (leg2.away_score ?? 0)
+        // Agregat tim B = skor away di leg1 + skor home di leg2
+        const aggB = (leg1.away_score ?? 0) + (leg2.home_score ?? 0)
+
+        if (aggA > aggB) winners.push(teamA)
+        else if (aggB > aggA) winners.push(teamB)
+        else { alert(`Agregat imbang di babak ini! Tentukan pemenang secara manual.`); return }
+      }
+    } else {
+      // 1 leg — pemenang langsung dari skor
+      winners = currentMatches.map(m => {
+        if (m.home_score > m.away_score) return m.home_team_id
+        if (m.away_score > m.home_score) return m.away_team_id
+        return null
+      })
+      if (winners.some(w => !w)) { alert('Ada laga yang berakhir seri, tentukan pemenang dulu!'); return }
+    }
 
     if (winners.length < 2) { alert('Tidak cukup pemenang untuk babak berikutnya!'); return }
-    if (winners.some(w => !w)) { alert('Ada laga yang berakhir seri, tentukan pemenang dulu!'); return }
 
     // Cek apakah babak berikutnya sudah ada
     const nextExists = koMatches.some(m => m.stage === nextStage)
@@ -1144,14 +1241,27 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
     const matchRows = []
     for (let i = 0; i < winners.length; i += 2) {
       if (winners[i + 1]) {
+        const pairIndex = Math.floor(i / 2) + 1
         matchRows.push({
           season_id: seasonId,
           home_team_id: winners[i],
           away_team_id: winners[i + 1],
           stage: nextStage,
-          round: Math.floor(i / 2) + 1,
+          round: pairIndex,
+          leg_number: 1,
           status: 'scheduled'
         })
+        if (legs === 2) {
+          matchRows.push({
+            season_id: seasonId,
+            home_team_id: winners[i + 1],
+            away_team_id: winners[i],
+            stage: nextStage,
+            round: pairIndex,
+            leg_number: 2,
+            status: 'scheduled'
+          })
+        }
       }
     }
 
@@ -1161,49 +1271,83 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
     setGenerating(false)
   }
 
-  return (
-    <div className="space-y-6">
-      {KO_ROUNDS.map(r => {
-        const roundMatches = koMatches.filter(m => m.stage === r.key)
-        const allDone = roundMatches.length > 0 && roundMatches.every(m => m.status === 'approved')
-        const nextExists = r.next && koMatches.some(m => m.stage === r.next)
-        const showGenNext = isAdmin && allDone && r.next && !nextExists
+  // Tentukan babak mana saja yang aktif (ada match atau babak pertama)
+  const activeRounds = KO_ROUNDS.filter(r => koMatches.some(m => m.stage === r.key))
+  const firstRound   = activeRounds[0] ?? KO_ROUNDS[2] // default qf jika kosong
 
-        return (
-          <div key={r.key} className="card overflow-hidden">
-            <div className="px-5 py-3 border-b border-white/10 bg-pitch-dark/50 flex items-center justify-between gap-2">
-              <span className="font-display font-semibold text-sm text-accent-yellow">{r.label}</span>
-              {isAdmin && (
-                <div className="flex gap-2">
-                  {showGenNext && (
-                    <button
-                      onClick={() => generateNextRound(r.key)}
-                      disabled={generating}
-                      className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1"
-                    >
-                      <Calendar size={12} /> {generating ? '...' : `Generate ${KO_ROUNDS.find(x => x.key === r.next)?.label}`}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setManageModal(r.key)}
-                    className="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1"
-                  >
-                    <Users size={12} /> Kelola Tim
-                  </button>
-                </div>
-              )}
-            </div>
-            {roundMatches.length === 0
-              ? <div className="px-5 py-4 text-center text-white/20 text-xs">Belum ada laga</div>
-              : <div className="divide-y divide-white/5">
-                  {roundMatches.map(m => (
-                    <KoMatchRow key={m.id} match={m} isAdmin={isAdmin} onDelete={deleteMatch} onUpdate={fetchKo} onImgClick={setImgModal} />
-                  ))}
-                </div>
-            }
-          </div>
-        )
-      })}
+  // Untuk bracket tree: kumpulkan semua stage yang ada + stage berikutnya yg kosong
+  const bracketRounds = (() => {
+    const result = []
+    for (const r of KO_ROUNDS) {
+      const ms = koMatches.filter(m => m.stage === r.key)
+      if (ms.length > 0) result.push(r)
+      else if (result.length > 0) { result.push(r); break } // satu babak kosong berikutnya
+    }
+    if (result.length === 0) result.push(...KO_ROUNDS) // semua babak sebagai placeholder
+    return result
+  })()
+
+  const hasAnyMatch = koMatches.length > 0
+
+  return (
+    <div className="space-y-4">
+      {/* Admin controls */}
+      {isAdmin && (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Tombol setup bracket awal — hanya muncul jika belum ada match */}
+          {!hasAnyMatch && (
+            <button
+              onClick={() => setSetupModal(true)}
+              className="btn-primary text-sm flex items-center gap-2"
+            >
+              <Plus size={15} /> Setup Bracket
+            </button>
+          )}
+
+          {/* Generate babak berikutnya */}
+          {KO_ROUNDS.map(r => {
+            const roundMatches = koMatches.filter(m => m.stage === r.key)
+            const allDone = roundMatches.length > 0 && roundMatches.every(m => m.status === 'approved')
+            const nextExists = r.next && koMatches.some(m => m.stage === r.next)
+            const showGenNext = allDone && r.next && !nextExists
+            const nextLabel = KO_ROUNDS.find(x => x.key === r.next)?.label
+            if (!showGenNext) return null
+            return (
+              <button
+                key={r.key}
+                onClick={() => setGenLegModal({ fromStage: r.key, nextStage: r.next, nextLabel })}
+                disabled={generating}
+                className="btn-primary text-sm flex items-center gap-2"
+              >
+                <Calendar size={15} /> {generating ? '...' : `Generate ${nextLabel}`}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Bracket Tree */}
+      <BracketTree
+        rounds={bracketRounds}
+        koMatches={koMatches}
+        isAdmin={isAdmin}
+        onDelete={deleteMatch}
+        onUpdate={fetchKo}
+        onImgClick={setImgModal}
+        onManage={isAdmin ? (stageKey) => setManageModal(stageKey) : null}
+      />
+
+      {setupModal && createPortal(
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setSetupModal(false)}>
+          <SetupBracketModal
+            enrolledTeams={enrolledTeams}
+            seasonId={seasonId}
+            onClose={() => setSetupModal(false)}
+            onSaved={() => { setSetupModal(false); fetchKo(); onUpdate() }}
+          />
+        </div>,
+        document.body
+      )}
 
       {manageModal && (
         <ManageKoTeamsModal
@@ -1217,6 +1361,20 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
         />
       )}
 
+      {genLegModal && createPortal(
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setGenLegModal(null)}>
+          <GenLegModal
+            nextLabel={genLegModal.nextLabel}
+            onClose={() => setGenLegModal(null)}
+            onConfirm={legs => {
+              setGenLegModal(null)
+              generateNextRound(genLegModal.fromStage, legs)
+            }}
+          />
+        </div>,
+        document.body
+      )}
+
       {imgModal && createPortal(
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setImgModal(null)}>
           <img src={imgModal} alt="bukti" className="max-w-full max-h-full rounded-xl object-contain" />
@@ -1227,70 +1385,593 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
   )
 }
 
-function KoMatchRow({ match: m, isAdmin, onDelete, onUpdate, onImgClick }) {
-  const [scoreModal, setScoreModal] = useState(null)
+// ─── Modal Setup Bracket Awal ────────────────────────────────────────────────
+// Step 1: pilih babak awal + format leg
+// Step 2: pilih tim peserta + acak
+function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
+  const teamList = enrolledTeams.map(st => st.team).filter(Boolean)
+  const [step, setStep]       = useState(1)
+  const [stage, setStage]     = useState(null)
+  const [legs, setLegs]       = useState(1)
+  const [selected, setSelected] = useState([])
+  const [saving, setSaving]   = useState(false)
 
-  async function approveResult() {
-    await supabase.from('matches').update({ status: 'approved', approved_at: new Date().toISOString() }).eq('id', m.id)
-    onUpdate()
+  // Jumlah tim yang dibutuhkan per babak
+  const teamCount = { r32: 32, r16: 16, qf: 8, sf: 4, final: 2 }
+  const needed = teamCount[stage] ?? 0
+
+  function toggleTeam(id) {
+    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  async function handleGenerate() {
+    if (selected.length < 2) { alert('Pilih minimal 2 tim!'); return }
+    setSaving(true)
+
+    const shuffled = [...selected].sort(() => Math.random() - 0.5)
+    const matchRows = []
+    for (let i = 0; i < shuffled.length; i += 2) {
+      if (shuffled[i + 1]) {
+        const pairIndex = Math.floor(i / 2) + 1
+        matchRows.push({
+          season_id: seasonId,
+          home_team_id: shuffled[i],
+          away_team_id: shuffled[i + 1],
+          stage,
+          round: pairIndex,
+          leg_number: 1,
+          status: 'scheduled'
+        })
+        if (legs === 2) {
+          matchRows.push({
+            season_id: seasonId,
+            home_team_id: shuffled[i + 1],
+            away_team_id: shuffled[i],
+            stage,
+            round: pairIndex,
+            leg_number: 2,
+            status: 'scheduled'
+          })
+        }
+      }
+    }
+
+    const { error } = await supabase.from('matches').insert(matchRows)
+    if (error) alert('Gagal: ' + error.message)
+    setSaving(false)
+    if (!error) onSaved()
   }
 
   return (
-    <div className="flex flex-wrap items-center px-4 py-3 gap-x-2 gap-y-1.5 table-row-hover">
-      <div className="flex items-center gap-2 flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
-          <span className="text-sm font-medium truncate">{m.home_team?.name}</span>
-          <div className="w-7 h-7 rounded bg-white/10 flex items-center justify-center text-xs font-bold text-brand-400 overflow-hidden shrink-0">
-            {m.home_team?.owner?.avatar_url ? <img src={m.home_team.owner.avatar_url} alt="" className="w-full h-full object-cover" /> : m.home_team?.name?.[0]}
-          </div>
+    <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
+        <div>
+          <h2 className="font-display font-bold text-base">Setup Bracket</h2>
+          <p className="text-[10px] text-white/30 mt-0.5">Langkah {step} dari 2</p>
         </div>
-        <div
-          className={`font-display font-bold text-sm bg-pitch-dark rounded-lg px-2 py-1 w-14 text-center shrink-0 ${m.screenshot_url ? 'cursor-pointer hover:bg-white/10' : ''}`}
-          onClick={() => m.screenshot_url && onImgClick(m.screenshot_url)}
-        >
-          {m.home_score !== null ? `${m.home_score}–${m.away_score}` : 'vs'}
-        </div>
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <div className="w-7 h-7 rounded bg-white/10 flex items-center justify-center text-xs font-bold text-brand-400 overflow-hidden shrink-0">
-            {m.away_team?.owner?.avatar_url ? <img src={m.away_team.owner.avatar_url} alt="" className="w-full h-full object-cover" /> : m.away_team?.name?.[0]}
-          </div>
-          <span className="text-sm font-medium truncate">{m.away_team?.name}</span>
-        </div>
+        <button onClick={onClose} className="text-white/40 hover:text-white"><XCircle size={18} /></button>
       </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        {m.status === 'approved' && <span className="badge-green text-xs">✓</span>}
-        {m.status === 'pending_result' && <span className="badge-yellow text-xs flex items-center gap-1"><Clock size={11} /></span>}
-        {isAdmin && (
-          <>
-            <button onClick={() => setScoreModal(m)} className="badge-blue cursor-pointer p-1.5 flex items-center">
-              <Pencil size={13} />
+
+      {step === 1 && (
+        <>
+          <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+            {/* Pilih babak awal */}
+            <div>
+              <p className="text-xs text-white/50 mb-2 font-medium">Mulai dari babak</p>
+              <div className="grid grid-cols-1 gap-1.5">
+                {KO_ROUNDS.map(r => (
+                  <button
+                    key={r.key}
+                    onClick={() => setStage(r.key)}
+                    className={`flex items-center justify-between px-4 py-2.5 rounded-lg border text-sm font-medium transition-all text-left
+                      ${stage === r.key
+                        ? 'bg-brand-600/20 border-brand-500 text-white'
+                        : 'bg-white/3 border-white/8 text-white/50 hover:text-white hover:border-white/20'}`}
+                  >
+                    <span className="font-display font-semibold">{r.label}</span>
+                    <span className="text-[10px] text-white/30 font-mono">{teamCount[r.key]} tim</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Pilih format leg */}
+            <div>
+              <p className="text-xs text-white/50 mb-2 font-medium">Format pertandingan</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setLegs(1)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
+                    ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+                >
+                  1 Leg
+                </button>
+                <button
+                  onClick={() => setLegs(2)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
+                    ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+                >
+                  2 Leg
+                </button>
+              </div>
+              <p className="text-[10px] text-white/30 mt-1.5">
+                {legs === 1 ? '1 pertandingan per pasangan.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="px-5 py-4 border-t border-white/10 flex gap-3 shrink-0">
+            <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
+            <button onClick={() => setStep(2)} disabled={!stage} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+              Pilih Tim <ArrowLeft size={13} className="rotate-180" />
             </button>
-            {m.status === 'pending_result' && (
-              <button onClick={approveResult} className="badge-green cursor-pointer p-1.5 flex items-center">
-                <Check size={13} />
-              </button>
+          </div>
+        </>
+      )}
+
+      {step === 2 && (
+        <>
+          <div className="px-5 pt-3 pb-1 shrink-0">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-white/50">
+                Pilih tim untuk <span className="text-white font-semibold">{KO_ROUNDS.find(r => r.key === stage)?.label}</span>
+              </p>
+              <span className={`text-[10px] font-mono ${selected.length > needed ? 'text-accent-red' : selected.length === needed ? 'text-accent-green' : 'text-white/30'}`}>
+                {selected.length}/{needed}
+              </span>
+            </div>
+            {selected.length > needed && (
+              <p className="text-[10px] text-accent-red mt-1">Terlalu banyak tim. Maksimal {needed} tim untuk babak ini.</p>
             )}
-            <button onClick={() => onDelete(m.id)} className="text-white/20 hover:text-accent-red transition-colors p-1.5">
-              <XCircle size={14} />
+          </div>
+
+          <div className="divide-y divide-white/5 overflow-y-auto flex-1">
+            {teamList.map(t => {
+              const checked = selected.includes(t.id)
+              return (
+                <button key={t.id} onClick={() => toggleTeam(t.id)}
+                  className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-600/15' : 'hover:bg-white/5'}`}>
+                  <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold text-brand-400 overflow-hidden shrink-0">
+                    {t.owner?.avatar_url ? <img src={t.owner.avatar_url} alt="" className="w-full h-full object-cover" /> : t.name[0]}
+                  </div>
+                  <span className="font-medium text-sm flex-1">{t.name}</span>
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-white/20'}`}>
+                    {checked && <Check size={12} className="text-white" />}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="px-5 py-4 border-t border-white/10 flex gap-3 shrink-0">
+            <button onClick={() => setStep(1)} className="btn-secondary text-sm px-4">
+              <ArrowLeft size={14} />
             </button>
-          </>
-        )}
-      </div>
-      {scoreModal && (
-        <ScoreModal match={scoreModal} isAdmin={isAdmin} onClose={() => setScoreModal(null)} onSaved={() => { setScoreModal(null); onUpdate() }} />
+            <button
+              onClick={handleGenerate}
+              disabled={saving || selected.length !== needed}
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5"
+            >
+              {saving ? 'Menyimpan...' : <><Swords size={14} /> Acak & Generate</>}
+            </button>
+          </div>
+        </>
       )}
     </div>
   )
 }
 
+// ─── Modal pilih format leg saat generate babak berikutnya ───────────────────
+function GenLegModal({ nextLabel, onClose, onConfirm }) {
+  const [legs, setLegs] = useState(1)
+  return (
+    <div className="card w-full max-w-xs animate-slide-in p-5 space-y-4" onClick={e => e.stopPropagation()}>
+      <div className="flex items-center justify-between">
+        <h2 className="font-display font-bold text-base">Generate {nextLabel}</h2>
+        <button onClick={onClose} className="text-white/40 hover:text-white"><XCircle size={17} /></button>
+      </div>
+
+      <div>
+        <p className="text-xs text-white/40 mb-2">Format pertandingan</p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setLegs(1)}
+            className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
+              ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+          >
+            1 Leg
+          </button>
+          <button
+            onClick={() => setLegs(2)}
+            className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
+              ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+          >
+            2 Leg
+          </button>
+        </div>
+        <p className="text-[10px] text-white/30 mt-1.5">
+          {legs === 1
+            ? '1 pertandingan per pasangan. Pemenang langsung lolos.'
+            : '2 pertandingan per pasangan (home & away). Pemenang dari agregat skor.'}
+        </p>
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
+        <button onClick={() => onConfirm(legs)} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
+          <Calendar size={13} /> Generate
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Bracket Tree ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Bracket Tree â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Konstanta ukuran kartu
+const CARD_W      = 180  // lebar kartu
+const CARD_H_1LEG = 72   // tinggi kartu 1 leg
+const CARD_H_2LEG = 120  // tinggi kartu 2 leg (header + leg1 + leg2 + agregat)
+const CARD_GAP    = 20   // jarak antar kartu dalam satu kolom
+const COL_GAP     = 48   // jarak horizontal antar babak
+
+function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClick, onManage }) {
+  const [scoreModal, setScoreModal] = useState(null)
+
+  if (rounds.length === 0) {
+    return (
+      <div className="card p-10 text-center text-white/20 text-sm">
+        <Trophy size={32} className="mx-auto mb-3 opacity-20" />
+        Belum ada data bracket. Admin dapat menambahkan tim via tombol di atas.
+      </div>
+    )
+  }
+
+  // Untuk setiap babak, kumpulkan "pair" â€” 1 pair = 1 slot di bagan
+  // Pair diidentifikasi oleh round number. Jika 2 leg, pair punya leg1 & leg2.
+  function getPairs(stageKey) {
+    const ms = koMatches.filter(m => m.stage === stageKey)
+    const isTwoLegs = ms.some(m => m.leg_number === 2)
+    if (!isTwoLegs) {
+      return ms
+        .sort((a, b) => (a.round ?? 0) - (b.round ?? 0))
+        .map(m => ({ type: '1leg', leg1: m, leg2: null, pairId: m.id }))
+    }
+    const roundNums = [...new Set(ms.map(m => m.round))].sort((a, b) => a - b)
+    return roundNums.map(rn => {
+      const leg1 = ms.find(m => m.round === rn && m.leg_number === 1) ?? null
+      const leg2 = ms.find(m => m.round === rn && m.leg_number === 2) ?? null
+      return { type: '2leg', leg1, leg2, pairId: `${stageKey}-${rn}` }
+    })
+  }
+
+  function cardH(stageKey) {
+    const ms = koMatches.filter(m => m.stage === stageKey)
+    return ms.some(m => m.leg_number === 2) ? CARD_H_2LEG : CARD_H_1LEG
+  }
+
+  const firstPairs = getPairs(rounds[0].key)
+  const firstSlots = Math.max(firstPairs.length, 1)
+  const slotsPerRound = rounds.map((_, i) => Math.max(Math.ceil(firstSlots / Math.pow(2, i)), 1))
+
+  const ch0  = cardH(rounds[0].key)
+  const svgH = firstSlots * (ch0 + CARD_GAP) + CARD_GAP
+  const svgW = rounds.length * (CARD_W + COL_GAP) - COL_GAP + 4
+
+  function slotCY(slotIndex, totalSlots) {
+    const cellH = svgH / totalSlots
+    return cellH * slotIndex + cellH / 2
+  }
+
+  const colPositions = rounds.map((r, ci) => {
+    const slots = slotsPerRound[ci]
+    const pairs = getPairs(r.key)
+    const ch    = cardH(r.key)
+    const x     = ci * (CARD_W + COL_GAP)
+    return Array.from({ length: slots }, (_, si) => ({
+      x, cy: slotCY(si, slots), pair: pairs[si] ?? null, ch,
+    }))
+  })
+
+  const connectors = []
+  for (let ci = 0; ci < colPositions.length - 1; ci++) {
+    const cur  = colPositions[ci]
+    const next = colPositions[ci + 1]
+    for (let ni = 0; ni < next.length; ni++) {
+      const top = cur[ni * 2]
+      const bot = cur[ni * 2 + 1]
+      const dst = next[ni]
+      if (!top || !dst) continue
+      const x1 = top.x + CARD_W
+      const x2 = dst.x
+      const mx  = x1 + COL_GAP / 2
+      if (bot) {
+        const midY = (top.cy + bot.cy) / 2
+        connectors.push(
+          <g key={`conn-${ci}-${ni}`} stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" fill="none">
+            <path d={`M${x1},${top.cy} H${mx} V${midY}`} />
+            <path d={`M${x1},${bot.cy} H${mx} V${midY}`} />
+            <path d={`M${mx},${midY} H${x2}`} />
+          </g>
+        )
+      } else {
+        connectors.push(
+          <g key={`conn-${ci}-${ni}`} stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" fill="none">
+            <path d={`M${x1},${top.cy} H${x2}`} />
+          </g>
+        )
+      }
+    }
+  }
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="overflow-x-auto custom-scrollbar">
+        {/* Header label babak — ikut scroll bersama SVG */}
+        <div className="flex border-b border-white/10 bg-pitch-dark/60" style={{ minWidth: svgW + 24 }}>
+          {rounds.map((r, ci) => (
+            <div key={r.key} style={{ width: CARD_W, marginLeft: ci === 0 ? 12 : COL_GAP, flexShrink: 0 }} className="px-2 py-2 text-center">
+              <div className="flex items-center justify-center gap-1.5">
+                <span className="text-[10px] font-display font-semibold text-accent-yellow uppercase tracking-widest">{r.label}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="p-3">
+          <svg width={svgW} height={svgH} style={{ display: 'block', overflow: 'visible' }}>
+            {connectors}
+            {colPositions.map((col, ci) =>
+              col.map(({ x, cy, pair, ch }, si) => (
+                <BracketCard
+                  key={`${ci}-${si}`}
+                  x={x} cy={cy} cardH={ch} pair={pair}
+                  isAdmin={isAdmin}
+                  onDelete={onDelete} onUpdate={onUpdate}
+                  onImgClick={onImgClick} onScoreClick={setScoreModal}
+                />
+              ))
+            )}
+          </svg>
+        </div>
+      </div>
+      {scoreModal && (
+        <ScoreModal match={scoreModal} isAdmin={isAdmin}
+          onClose={() => setScoreModal(null)}
+          onSaved={() => { setScoreModal(null); onUpdate() }} />
+      )}
+    </div>
+  )
+}
+
+// â”€â”€â”€ Bracket Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgClick, onScoreClick }) {
+  const y = cy - cardH / 2
+
+  async function approve(matchId) {
+    await supabase.from('matches').update({ status: 'approved', approved_at: new Date().toISOString() }).eq('id', matchId)
+    onUpdate()
+  }
+
+  if (!pair) {
+    return (
+      <foreignObject x={x} y={y} width={CARD_W} height={cardH}>
+        <div xmlns="http://www.w3.org/1999/xhtml"
+          className="w-full h-full rounded-lg border border-dashed border-white/10 flex items-center justify-center">
+          <span className="text-[10px] text-white/20 font-mono">TBD</span>
+        </div>
+      </foreignObject>
+    )
+  }
+
+  const { type, leg1, leg2 } = pair
+
+  // â”€â”€ 1 Leg â”€â”€
+  if (type === '1leg') {
+    const m = leg1
+    const homeWin  = m?.status === 'approved' && m.home_score > m.away_score
+    const awayWin  = m?.status === 'approved' && m.away_score > m.home_score
+    const hasScore = m?.home_score !== null && m?.away_score !== null
+    return (
+      <foreignObject x={x} y={y} width={CARD_W} height={cardH}>
+        <div xmlns="http://www.w3.org/1999/xhtml"
+          className={`w-full h-full rounded-lg border flex flex-col overflow-hidden text-[11px] font-medium
+            ${m?.status === 'approved' ? 'border-white/20 bg-pitch-dark' : 'border-white/10 bg-pitch-mid'}`}>
+          <BcTeamRow team={m?.home_team} score={hasScore ? m.home_score : null} isWinner={homeWin}
+            onImgClick={m?.screenshot_url ? () => onImgClick(m.screenshot_url) : null} hasBorder />
+          <BcTeamRow team={m?.away_team} score={hasScore ? m.away_score : null} isWinner={awayWin}
+            onImgClick={m?.screenshot_url ? () => onImgClick(m.screenshot_url) : null} />
+          <BcActionRow m={m} isAdmin={isAdmin}
+            onApprove={() => approve(m.id)} onScore={() => onScoreClick(m)} onDelete={() => onDelete(m.id)} />
+        </div>
+      </foreignObject>
+    )
+  }
+
+  // â”€â”€ 2 Leg â”€â”€
+  const teamA = leg1?.home_team ?? leg2?.away_team ?? null
+  const teamB = leg1?.away_team ?? leg2?.home_team ?? null
+  const l1A = leg1?.home_score ?? null
+  const l1B = leg1?.away_score ?? null
+  const l2A = leg2?.away_score ?? null   // tim A main away di leg2
+  const l2B = leg2?.home_score ?? null   // tim B main home di leg2
+  const aggA = l1A !== null && l2A !== null ? l1A + l2A : null
+  const aggB = l1B !== null && l2B !== null ? l1B + l2B : null
+  const aggWinA = aggA !== null && aggB !== null && aggA > aggB
+  const aggWinB = aggA !== null && aggB !== null && aggB > aggA
+  const allDone = leg1?.status === 'approved' && leg2?.status === 'approved'
+
+  return (
+    <foreignObject x={x} y={y} width={CARD_W} height={cardH}>
+      <div xmlns="http://www.w3.org/1999/xhtml"
+        className={`w-full h-full rounded-lg border flex flex-col overflow-hidden text-[11px] font-medium
+          ${allDone ? 'border-white/20 bg-pitch-dark' : 'border-white/10 bg-pitch-mid'}`}>
+
+        {/* Header: nama tim A vs tim B */}
+        <div className="flex items-center justify-between px-2 py-1 border-b border-white/10 bg-black/20 shrink-0">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            <BcAvatar team={teamA} />
+            <span className={`truncate text-[10px] font-semibold leading-tight ${aggWinA ? 'text-white' : 'text-white/60'}`}>
+              {teamA?.name ?? 'TBD'}
+            </span>
+          </div>
+          <span className="text-white/20 text-[9px] font-mono mx-1 shrink-0">vs</span>
+          <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+            <span className={`truncate text-[10px] font-semibold leading-tight text-right ${aggWinB ? 'text-white' : 'text-white/60'}`}>
+              {teamB?.name ?? 'TBD'}
+            </span>
+            <BcAvatar team={teamB} />
+          </div>
+        </div>
+
+        {/* Leg 1 */}
+        <BcLegRow label="L1"
+          scoreA={l1A} scoreB={l1B}
+          done={leg1?.status === 'approved'} pending={leg1?.status === 'pending_result'}
+          isAdmin={isAdmin}
+          onApprove={leg1 ? () => approve(leg1.id) : null}
+          onScore={leg1 ? () => onScoreClick(leg1) : null}
+          onDelete={leg1 ? () => onDelete(leg1.id) : null}
+          onImgClick={leg1?.screenshot_url ? () => onImgClick(leg1.screenshot_url) : null}
+        />
+
+        {/* Leg 2 */}
+        <BcLegRow label="L2"
+          scoreA={l2A} scoreB={l2B}
+          done={leg2?.status === 'approved'} pending={leg2?.status === 'pending_result'}
+          isAdmin={isAdmin}
+          onApprove={leg2 ? () => approve(leg2.id) : null}
+          onScore={leg2 ? () => onScoreClick(leg2) : null}
+          onDelete={leg2 ? () => onDelete(leg2.id) : null}
+          onImgClick={leg2?.screenshot_url ? () => onImgClick(leg2.screenshot_url) : null}
+          hasBorderTop
+        />
+
+        {/* Agregat */}
+        <div className={`flex items-center justify-center gap-1.5 px-2 py-1 border-t border-white/10 shrink-0 ${allDone ? 'bg-black/30' : 'bg-black/10'}`}>
+          <span className={`font-display font-bold text-[11px] ${aggWinA ? 'text-accent-green' : 'text-white/30'}`}>{aggA ?? '-'}</span>
+          <span className="text-[9px] text-white/20 font-mono">agg</span>
+          <span className={`font-display font-bold text-[11px] ${aggWinB ? 'text-accent-green' : 'text-white/30'}`}>{aggB ?? '-'}</span>
+        </div>
+      </div>
+    </foreignObject>
+  )
+}
+
+function BcAvatar({ team }) {
+  return (
+    <div className="w-4 h-4 rounded bg-white/10 flex items-center justify-center text-[8px] font-bold text-brand-400 overflow-hidden shrink-0">
+      {team?.owner?.avatar_url
+        ? <img src={team.owner.avatar_url} alt="" className="w-full h-full object-cover" />
+        : team?.name?.[0] ?? '?'}
+    </div>
+  )
+}
+
+function BcTeamRow({ team, score, isWinner, onImgClick, hasBorder }) {
+  return (
+    <div className={`flex items-center gap-1.5 px-2 flex-1 min-w-0 ${hasBorder ? 'border-b border-white/5' : ''} ${isWinner ? 'bg-brand-600/20' : ''}`}>
+      <BcAvatar team={team} />
+      <span className={`flex-1 truncate leading-tight ${isWinner ? 'text-white font-semibold' : 'text-white/70'}`}>
+        {team?.name ?? 'TBD'}
+      </span>
+      {score !== null && (
+        <span className={`font-display font-bold shrink-0 w-4 text-center ${isWinner ? 'text-white' : 'text-white/40'}`}
+          onClick={onImgClick ?? undefined} style={{ cursor: onImgClick ? 'pointer' : 'default' }}>
+          {score}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function BcLegRow({ label, scoreA, scoreB, done, pending, isAdmin, onApprove, onScore, onDelete, onImgClick, hasBorderTop }) {
+  return (
+    <div className={`flex items-center gap-1 px-1.5 py-1 shrink-0 ${hasBorderTop ? 'border-t border-white/5' : ''} ${done ? 'bg-black/10' : ''}`}>
+      <span className="text-[9px] text-white/25 font-mono w-4 shrink-0">{label}</span>
+      <div className="flex-1 flex items-center justify-center gap-1"
+        onClick={onImgClick ?? undefined} style={{ cursor: onImgClick ? 'pointer' : 'default' }}>
+        {scoreA !== null && scoreB !== null
+          ? <>
+              <span className={`font-display font-bold text-[11px] w-4 text-center ${scoreA > scoreB ? 'text-white' : 'text-white/35'}`}>{scoreA}</span>
+              <span className="text-white/20 text-[9px]">-</span>
+              <span className={`font-display font-bold text-[11px] w-4 text-center ${scoreB > scoreA ? 'text-white' : 'text-white/35'}`}>{scoreB}</span>
+            </>
+          : <span className="text-white/15 text-[9px] font-mono">vs</span>
+        }
+      </div>
+      <div className="flex items-center gap-0.5 shrink-0">
+        {done && <span className="text-[8px] text-accent-green">v</span>}
+        {pending && !done && <Clock size={8} className="text-accent-yellow" />}
+        {isAdmin && (
+          <>
+            {pending && onApprove && (
+              <button onClick={onApprove} className="w-4 h-4 rounded flex items-center justify-center hover:bg-accent-green/30" title="Approve">
+                <Check size={8} className="text-accent-green" />
+              </button>
+            )}
+            {onScore && (
+              <button onClick={onScore} className="w-4 h-4 rounded flex items-center justify-center hover:bg-brand-500/30" title="Edit">
+                <Pencil size={8} className="text-brand-400" />
+              </button>
+            )}
+            {onDelete && (
+              <button onClick={onDelete} className="w-4 h-4 rounded flex items-center justify-center hover:bg-accent-red/20" title="Hapus">
+                <XCircle size={8} className="text-white/25" />
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function BcActionRow({ m, isAdmin, onApprove, onScore, onDelete }) {
+  if (!m) return null
+  return (
+    <div className="flex items-center justify-end gap-0.5 px-1 py-0.5 border-t border-white/5 bg-black/20 shrink-0">
+      {m.status === 'approved' && <span className="text-[9px] text-accent-green font-mono mr-auto pl-1">v</span>}
+      {m.status === 'pending_result' && !isAdmin && <Clock size={9} className="text-accent-yellow mr-auto ml-1" />}
+      {isAdmin && (
+        <>
+          {m.status === 'pending_result' && (
+            <button onClick={onApprove} className="w-5 h-5 rounded flex items-center justify-center hover:bg-accent-green/30 transition-colors" title="Approve">
+              <Check size={10} className="text-accent-green" />
+            </button>
+          )}
+          <button onClick={onScore} className="w-5 h-5 rounded flex items-center justify-center hover:bg-brand-500/30 transition-colors" title="Edit skor">
+            <Pencil size={10} className="text-brand-400" />
+          </button>
+          <button onClick={onDelete} className="w-5 h-5 rounded flex items-center justify-center hover:bg-accent-red/30 transition-colors" title="Hapus">
+            <XCircle size={10} className="text-white/30" />
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
 // Modal kelola tim per babak — tambah tim, lalu acak atau atur manual
 function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existingMatches, onClose, onSaved }) {
   const teamList = enrolledTeams.map(st => st.team).filter(Boolean)
 
   // Tim yang sudah ada di laga babak ini
   const usedIds = new Set(existingMatches.flatMap(m => [m.home_team_id, m.away_team_id]))
+
+  // Deteksi apakah babak ini sudah pakai 2 leg
+  const existingLegs = existingMatches.some(m => m.leg_number === 2) ? 2 : 1
+
+  // Jumlah tim yang dibutuhkan per fase
+  const teamCount = { r32: 32, r16: 16, qf: 8, sf: 4, final: 2 }
+  const needed = teamCount[stage] ?? 0
+
   const [selected, setSelected] = useState([...usedIds])
+  const [legs, setLegs] = useState(existingLegs)
   const [saving, setSaving] = useState(false)
+
+  const isExact = selected.length === needed
+  const tooMany = selected.length > needed
+  const tooFew  = selected.length < needed
 
   function toggleTeam(id) {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -1308,14 +1989,29 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
     const matchRows = []
     for (let i = 0; i < shuffled.length; i += 2) {
       if (shuffled[i + 1]) {
+        const pairIndex = Math.floor(i / 2) + 1
+        // Leg 1
         matchRows.push({
           season_id: seasonId,
           home_team_id: shuffled[i],
           away_team_id: shuffled[i + 1],
           stage,
-          round: Math.floor(i / 2) + 1,
+          round: pairIndex,
+          leg_number: 1,
           status: 'scheduled'
         })
+        // Leg 2 — kandang dibalik
+        if (legs === 2) {
+          matchRows.push({
+            season_id: seasonId,
+            home_team_id: shuffled[i + 1],
+            away_team_id: shuffled[i],
+            stage,
+            round: pairIndex,
+            leg_number: 2,
+            status: 'scheduled'
+          })
+        }
       }
     }
 
@@ -1330,10 +2026,43 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
       <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
           <h2 className="font-display font-bold text-base">Kelola Tim — {stageLabel}</h2>
-          <button onClick={onClose} className="text-white/40 hover:text-white"><XCircle size={18} /></button>
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-display font-bold tabular-nums ${isExact ? 'text-accent-green' : tooMany ? 'text-accent-red' : 'text-white/40'}`}>
+              {selected.length}<span className="text-white/20 font-normal">/{needed}</span>
+            </span>
+            <button onClick={onClose} className="text-white/40 hover:text-white"><XCircle size={18} /></button>
+          </div>
         </div>
-        <p className="px-5 pt-3 text-xs text-white/40">Pilih tim yang masuk babak ini, lalu klik Acak untuk generate laga secara random.</p>
-        <div className="divide-y divide-white/5 overflow-y-auto flex-1 mt-2">
+        {(tooMany || (tooFew && selected.length > 0)) && (
+          <div className={`px-5 py-2 text-[11px] shrink-0 ${tooMany ? 'text-accent-red bg-accent-red/5' : 'text-white/40 bg-white/3'}`}>
+            {tooMany
+              ? `Terlalu banyak. ${stageLabel} butuh tepat ${needed} tim.`
+              : `Butuh ${needed - selected.length} tim lagi untuk ${stageLabel}.`}
+          </div>
+        )}
+        <div className="px-5 pt-4 pb-2 shrink-0">
+          <p className="text-xs text-white/40 mb-2">Format pertandingan</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setLegs(1)}
+              className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+            >
+              1 Leg
+            </button>
+            <button
+              onClick={() => setLegs(2)}
+              className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+            >
+              2 Leg
+            </button>
+          </div>
+          <p className="text-[10px] text-white/30 mt-1.5">
+            {legs === 1 ? '1 pertandingan per pasangan. Pemenang langsung lolos.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat skor.'}
+          </p>
+        </div>
+
+        <p className="px-5 pt-2 pb-1 text-xs text-white/40">Pilih tim yang masuk babak ini, lalu klik Acak untuk generate laga secara random.</p>
+        <div className="divide-y divide-white/5 overflow-y-auto flex-1 mt-1">
           {teamList.map(t => {
             const checked = selected.includes(t.id)
             return (
@@ -1352,7 +2081,7 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
         </div>
         <div className="px-5 py-4 border-t border-white/10 flex gap-3 shrink-0">
           <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
-          <button onClick={handleRandom} disabled={saving || selected.length < 2} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
+          <button onClick={handleRandom} disabled={saving || !isExact} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
             🎲 {saving ? 'Menyimpan...' : `Acak (${selected.length} tim)`}
           </button>
         </div>

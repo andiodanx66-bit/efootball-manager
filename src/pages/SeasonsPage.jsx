@@ -1,46 +1,48 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Trophy, ChevronRight, Star, Swords, Plus, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Trophy, ChevronRight, Star, Swords, Plus, Trash2, Pencil, Check, X } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import SeasonFormModal from '../components/admin/SeasonFormModal'
 
-const typeLabel = { league: 'Liga', cup: 'Cup', champions: 'Champions' }
-const typeIcon  = { league: Trophy, cup: Swords, champions: Star }
-const typeBadge = { league: 'badge-blue', cup: 'badge-yellow', champions: 'badge-purple' }
-const statusBadge = { draft: 'badge-gray', active: 'badge-green', finished: 'badge-red' }
-const statusLabel = { draft: 'Draft', active: 'Berjalan', finished: 'Selesai' }
+const typeIcon = { league: Trophy, cup: Swords, champions: Star }
 
 export default function SeasonsPage() {
   const { isAdmin } = useAuth()
-  const [seasons, setSeasons] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [seasons, setSeasons]   = useState([])
+  const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+  const [fabMenuOpen, setFabMenuOpen] = useState(false)
 
   useEffect(() => { fetchSeasons() }, [])
+
+  useEffect(() => {
+    if (!fabMenuOpen) return
+    function onKey(e) {
+      if (e.key === 'Escape') setFabMenuOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [fabMenuOpen])
 
   async function fetchSeasons() {
     const { data } = await supabase
       .from('seasons')
-      .select('*, created_by_profile:profiles!created_by(username)')
+      .select('*')
       .order('created_at', { ascending: false })
     setSeasons(data || [])
     setLoading(false)
   }
 
-  const active   = seasons.filter(s => s.status === 'active')
-  const others   = seasons.filter(s => s.status !== 'active')
+  const active = seasons.filter(s => s.status === 'active')
+  const others = seasons.filter(s => s.status !== 'active')
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-24">
       <div className="flex items-center justify-between">
         <h1 className="section-title">Kompetisi</h1>
-        {isAdmin && (
-          <button onClick={() => setShowForm(true)} className="btn-primary flex items-center gap-2 text-sm">
-            <Plus size={15} /> Tambah Kompetisi
-          </button>
-        )}
       </div>
 
       {loading ? (
@@ -50,14 +52,10 @@ export default function SeasonsPage() {
       ) : (
         <>
           {active.length > 0 && (
-            <div>
-              <h2 className="text-xs font-mono text-accent-green uppercase tracking-widest mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-accent-green animate-pulse-slow inline-block" />
-                Sedang Berjalan
-              </h2>
-              <div className="space-y-3">
-                {active.map(s => <SeasonCard key={s.id} season={s} isAdmin={isAdmin} onUpdate={fetchSeasons} />)}
-              </div>
+            <div className="space-y-3">
+              {active.map(s => (
+                <SeasonCard key={s.id} season={s} editMode={editMode && isAdmin} onUpdate={fetchSeasons} />
+              ))}
             </div>
           )}
 
@@ -65,7 +63,9 @@ export default function SeasonsPage() {
             <div>
               <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">Lainnya</h2>
               <div className="space-y-3">
-                {others.map(s => <SeasonCard key={s.id} season={s} isAdmin={isAdmin} onUpdate={fetchSeasons} />)}
+                {others.map(s => (
+                  <SeasonCard key={s.id} season={s} editMode={editMode && isAdmin} onUpdate={fetchSeasons} />
+                ))}
               </div>
             </div>
           )}
@@ -74,7 +74,6 @@ export default function SeasonsPage() {
             <div className="card p-12 text-center">
               <Trophy size={40} className="text-white/20 mx-auto mb-3" />
               <p className="text-white/40">Belum ada kompetisi</p>
-              <p className="text-white/25 text-xs mt-2">Admin dapat menambahkannya dari panel admin.</p>
             </div>
           )}
         </>
@@ -87,18 +86,83 @@ export default function SeasonsPage() {
           onSaved={() => { setShowForm(false); fetchSeasons() }}
         />
       )}
+
+      {/* FAB: pensil → menu Edit / Tambah */}
+      {isAdmin && (
+        <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
+          {fabMenuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-[35] bg-black/20"
+                aria-hidden
+                onClick={() => setFabMenuOpen(false)}
+              />
+              <div
+                role="menu"
+                className="relative z-[45] mb-1 min-w-[11rem] rounded-xl border border-white/10 bg-[#12141c] py-1 shadow-xl animate-slide-in"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setEditMode(e => !e)
+                    setFabMenuOpen(false)
+                  }}
+                  className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm font-display font-semibold text-left transition-colors
+                    ${editMode ? 'text-accent-yellow hover:bg-accent-yellow/10' : 'text-white/90 hover:bg-white/10'}`}
+                >
+                  <Pencil size={16} className="shrink-0 opacity-80" />
+                  {editMode ? 'Selesai edit' : 'Edit'}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowForm(true)
+                    setFabMenuOpen(false)
+                  }}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-display font-semibold text-left text-white/90 hover:bg-white/10 transition-colors border-t border-white/5"
+                >
+                  <Plus size={16} className="shrink-0 opacity-80" />
+                  Tambah
+                </button>
+              </div>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setFabMenuOpen(o => !o)}
+            aria-expanded={fabMenuOpen}
+            aria-haspopup="menu"
+            className={`w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95
+              ${editMode
+                ? 'bg-accent-yellow/80 hover:bg-accent-yellow shadow-accent-yellow/30 ring-2 ring-accent-yellow/40'
+                : fabMenuOpen
+                  ? 'bg-brand-500 shadow-brand-600/40'
+                  : 'bg-brand-600 hover:bg-brand-500 shadow-brand-600/40'}`}
+            title="Edit atau tambah kompetisi"
+          >
+            <Pencil size={22} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
-function SeasonCard({ season, isAdmin, onUpdate }) {
-  const navigate = useNavigate()
+function SeasonCard({ season, editMode, onUpdate }) {
   const Icon = typeIcon[season.type] || Trophy
+  const [renaming, setRenaming]     = useState(false)
+  const [newName, setNewName]       = useState(season.name)
+  const [saving, setSaving]         = useState(false)
   const [deleteModal, setDeleteModal] = useState(false)
 
-  async function handleFinish(e) {
-    e.preventDefault()
-    await supabase.from('seasons').update({ status: 'finished' }).eq('id', season.id)
+  async function handleRename() {
+    if (!newName.trim() || newName.trim() === season.name) { setRenaming(false); return }
+    setSaving(true)
+    await supabase.from('seasons').update({ name: newName.trim() }).eq('id', season.id)
+    setSaving(false)
+    setRenaming(false)
     onUpdate()
   }
 
@@ -110,8 +174,57 @@ function SeasonCard({ season, isAdmin, onUpdate }) {
 
   return (
     <>
-      <div className="card-hover p-5 flex items-center gap-4">
-        <Link to={`/seasons/${season.id}`} className="flex items-center gap-4 flex-1 min-w-0">
+      {editMode ? (
+        <div className={`card-hover p-4 flex items-center gap-3 border-accent-yellow/20`}>
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+            season.type === 'champions' ? 'bg-accent-purple/20 text-accent-purple' :
+            season.type === 'cup'       ? 'bg-accent-yellow/20 text-accent-yellow' :
+                                          'bg-brand-500/20 text-brand-400'
+          }`}>
+            <Icon size={20} />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            {renaming ? (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenaming(false) }}
+                  className="input py-1 text-sm font-display font-semibold"
+                />
+                <button onClick={handleRename} disabled={saving} className="text-accent-green hover:text-accent-green/70 shrink-0">
+                  <Check size={16} />
+                </button>
+                <button onClick={() => { setRenaming(false); setNewName(season.name) }} className="text-white/40 hover:text-white shrink-0">
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="font-display font-semibold text-base truncate">{season.name}</div>
+            )}
+          </div>
+
+          {!renaming && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => setRenaming(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-display font-semibold bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors border border-white/10"
+              >
+                <Pencil size={12} /> Rename
+              </button>
+              <button
+                onClick={() => setDeleteModal(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-display font-semibold bg-accent-red/10 hover:bg-accent-red/20 text-accent-red transition-colors border border-accent-red/20"
+              >
+                <Trash2 size={12} /> Hapus
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <Link to={`/seasons/${season.id}`} className="card-hover p-4 flex items-center gap-3 block">
           <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
             season.type === 'champions' ? 'bg-accent-purple/20 text-accent-purple' :
             season.type === 'cup'       ? 'bg-accent-yellow/20 text-accent-yellow' :
@@ -120,31 +233,18 @@ function SeasonCard({ season, isAdmin, onUpdate }) {
             <Icon size={20} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-display font-semibold text-base">{season.name}</div>
-            <div className="text-xs text-white/40 mt-0.5">
-              {typeLabel[season.type]} · Dibuat oleh {season.created_by_profile?.username || 'Admin'}
-            </div>
+            <div className="font-display font-semibold text-base truncate">{season.name}</div>
           </div>
+          <ChevronRight size={16} className="text-white/30 shrink-0" />
         </Link>
-        <div className="flex items-center gap-2 shrink-0">
-          {isAdmin && (
-            <button onClick={() => setDeleteModal(true)}
-              className="p-1.5 text-white/30 hover:text-accent-red hover:bg-accent-red/10 rounded-lg transition-colors" title="Hapus">
-              <Trash2 size={16} />
-            </button>
-          )}
-          <Link to={`/seasons/${season.id}`}>
-            <ChevronRight size={16} className="text-white/30" />
-          </Link>
-        </div>
-      </div>
+      )}
 
       {deleteModal && createPortal(
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setDeleteModal(false)}>
           <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
             <h2 className="font-display font-bold text-lg mb-2">Hapus Kompetisi</h2>
             <p className="text-white/60 text-sm mb-1">Yakin ingin menghapus <span className="text-white font-semibold">{season.name}</span>?</p>
-            <p className="text-white/40 text-xs mb-5">Semua jadwal, hasil, tim terdaftar, dan klasemen akan ikut terhapus.</p>
+            <p className="text-white/40 text-xs mb-5">Semua jadwal, hasil, tim terdaftar, dan klasemen akan ikut terhapus permanen.</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteModal(false)} className="btn-secondary flex-1 text-sm">Batal</button>
               <button onClick={handleDelete} className="btn-danger flex-1 text-sm">Hapus</button>

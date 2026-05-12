@@ -1,7 +1,7 @@
 import { Outlet, NavLink, useNavigate, Link } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
-  LayoutDashboard, Trophy, Users, LogOut, Menu, Shield
+  LayoutDashboard, Trophy, Users, LogOut, Menu, Shield, Sun, Moon
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -15,6 +15,17 @@ export default function Layout() {
   const { profile, isAdmin, signOut } = useAuth()
   const navigate  = useNavigate()
   const [open, setOpen] = useState(false)
+  const [light, setLight] = useState(() => localStorage.getItem('theme') === 'light')
+
+  useEffect(() => {
+    if (light) {
+      document.documentElement.classList.add('light')
+      localStorage.setItem('theme', 'light')
+    } else {
+      document.documentElement.classList.remove('light')
+      localStorage.setItem('theme', 'dark')
+    }
+  }, [light])
 
   async function handleSignOut() {
     await signOut()
@@ -86,6 +97,14 @@ export default function Layout() {
                 <div className="text-xs text-white/40 capitalize">{profile?.role}</div>
               </div>
             </Link>
+            {/* Toggle light/dark */}
+            <button
+              onClick={() => setLight(l => !l)}
+              className="text-white/40 hover:text-white/80 transition-colors p-2"
+              title={light ? 'Mode Gelap' : 'Mode Terang'}
+            >
+              {light ? <Moon size={15} /> : <Sun size={15} />}
+            </button>
             <button onClick={handleSignOut} className="text-white/40 hover:text-white/80 transition-colors p-2">
               <LogOut size={15} />
             </button>
@@ -100,10 +119,16 @@ export default function Layout() {
           <button onClick={() => setOpen(true)} className="text-white/60 hover:text-white">
             <Menu size={22} />
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1">
             <Trophy size={16} className="text-brand-400" />
             <span className="font-display font-bold tracking-wider text-sm">eFOOTBALL MANAGER</span>
           </div>
+          <button
+            onClick={() => setLight(l => !l)}
+            className="text-white/40 hover:text-white/80 transition-colors p-1"
+          >
+            {light ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
         </header>
 
         {/* Page content */}

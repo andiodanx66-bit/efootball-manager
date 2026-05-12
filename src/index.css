@@ -98,3 +98,20 @@
     linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
   background-size: 60px 60px;
 }
+
+/* Hide scrollbar utility */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ── Light mode via filter ──────────────────────────────────────────────────
+   Invert semua warna lalu hue-rotate 180° agar foto/avatar tidak ikut aneh.
+   Gambar dan screenshot dikecualikan via .no-invert.
+*/
+html.light {
+  filter: invert(1) hue-rotate(180deg);
+}
+html.light img,
+html.light video,
+html.light [data-no-invert] {
+  filter: invert(1) hue-rotate(180deg); /* balik lagi ke normal */
+}
