@@ -1,10 +1,9 @@
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 
 /**
  * Tombol kembali.
- * Pakai navigate(-1) — React Router handle history SPA dengan benar.
- * Fallback ke URL tertentu jika history kosong (buka langsung dari link).
+ * Navigasi ke fallback path — konsisten tanpa terpengaruh perubahan search params (tab).
  */
 export default function BackButton({ fallback = '/', label = 'Kembali' }) {
   const navigate = useNavigate()
@@ -12,9 +11,7 @@ export default function BackButton({ fallback = '/', label = 'Kembali' }) {
   function handleBack(e) {
     e.preventDefault()
     e.stopPropagation()
-    // React Router tracks its own history via location.key
-    // 'default' = halaman pertama yang dibuka langsung (tidak ada history sebelumnya)
-    navigate(-1)
+    navigate(fallback, { replace: true })
   }
 
   return (
