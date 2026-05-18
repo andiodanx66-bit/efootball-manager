@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, User, Swords, Gamepad2, Copy, Check } from 'lucide-react'
+import { useParams } from 'react-router-dom'
+import { User, Swords, Gamepad2, Copy, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import BackButton from '../components/layout/BackButton'
 
 export default function TeamDetail() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const [team,    setTeam]    = useState(null)
   const [matches, setMatches] = useState([])
   const [loading, setLoading] = useState(true)
@@ -34,26 +34,24 @@ export default function TeamDetail() {
   }
 
   if (loading) return <div className="flex justify-center p-12"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
-  if (!team) return <div className="text-white/40 p-8">Tim tidak ditemukan</div>
+  if (!team) return <div className="p-8 text-sm" style={{color:'#94a3b8'}}>Tim tidak ditemukan</div>
 
   const avatar = team.owner?.avatar_url
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <button onClick={() => navigate(-1)} className="text-white/40 hover:text-white text-sm flex items-center gap-1">
-        <ArrowLeft size={14} /> Kembali
-      </button>
+      <BackButton fallback="/teams" />
 
       {/* Header */}
       <div className="card p-6 flex items-center gap-5">
-        <div className="w-16 h-16 rounded-2xl bg-brand-600/20 border border-brand-500/30 flex items-center justify-center text-2xl font-display font-bold text-brand-400 overflow-hidden">
+        <div className="w-16 h-16 rounded-2xl bg-brand-100 border border-brand-200 flex items-center justify-center text-2xl font-display font-bold text-brand-600 overflow-hidden">
           {avatar
             ? <img src={avatar} alt="logo" className="w-full h-full object-cover" />
             : team.name[0].toUpperCase()}
         </div>
         <div className="flex-1">
-          <h1 className="text-2xl font-display font-bold">{team.name}</h1>
-          <p className="text-white/40 text-sm mt-1 flex items-center gap-1">
+          <h1 className="text-2xl font-display font-bold" style={{color:'#0f172a'}}>{team.name}</h1>
+          <p className="text-sm mt-1 flex items-center gap-1" style={{color:'#94a3b8'}}>
             <User size={13} /> {team.owner?.username}
           </p>
           <div className="flex items-center gap-4 mt-1 flex-wrap">
@@ -70,7 +68,7 @@ export default function TeamDetail() {
               {team.owner?.whatsapp || '-'}
             </a>
             {/* eFootball ID */}
-            <span className="flex items-center gap-1.5 text-xs text-white/40">
+            <span className="flex items-center gap-1.5 text-xs" style={{color:'#94a3b8'}}>
               <Gamepad2 size={12} />
               {team.owner?.efootball_id || '-'}
               {team.owner?.efootball_id && (
@@ -84,16 +82,15 @@ export default function TeamDetail() {
         </div>
       </div>
 
-      {/* Match history */}
       <div>
-        <h2 className="font-display font-semibold text-base mb-3 flex items-center gap-2">
-          <Swords size={16} className="text-brand-400" /> Riwayat Pertandingan
+        <h2 className="font-display font-semibold text-base mb-3 flex items-center gap-2" style={{color:'#0f172a'}}>
+          <Swords size={16} className="text-brand-600" /> Riwayat Pertandingan
         </h2>
         {matches.length === 0 ? (
-          <div className="card p-8 text-center text-white/30 text-sm">Belum ada pertandingan</div>
+          <div className="card p-8 text-center text-sm" style={{color:'#94a3b8'}}>Belum ada pertandingan</div>
         ) : (
           <div className="card overflow-hidden">
-            <div className="divide-y divide-white/5">
+            <div className="divide-y" style={{borderColor:'#e2e8f0'}}>
               {matches.map(m => {
                 const isHome = m.home_team_id === id
                 const myScore  = isHome ? m.home_score : m.away_score
@@ -102,11 +99,11 @@ export default function TeamDetail() {
                 const resultBadge = result === 'W' ? 'badge-green' : result === 'L' ? 'badge-red' : 'badge-gray'
                 return (
                   <div key={m.id} className="flex items-center px-5 py-3 gap-3 table-row-hover">
-                    <div className="w-[35%] text-right text-sm font-medium truncate">{m.home_team?.name}</div>
-                    <div className="font-display font-bold text-base bg-pitch-dark rounded-lg px-3 py-1 w-[80px] text-center shrink-0">
+                    <div className="w-[35%] text-right text-sm font-medium truncate" style={{color:'#0f172a'}}>{m.home_team?.name}</div>
+                    <div className="font-display font-bold text-base rounded-lg px-3 py-1 w-[80px] text-center shrink-0 border" style={{backgroundColor:'#f1f5f9', borderColor:'#e2e8f0', color:'#0f172a'}}>
                       {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
                     </div>
-                    <div className="w-[35%] text-left text-sm font-medium truncate">{m.away_team?.name}</div>
+                    <div className="w-[35%] text-left text-sm font-medium truncate" style={{color:'#0f172a'}}>{m.away_team?.name}</div>
                     <div className="flex items-center gap-1.5 ml-auto shrink-0">
                       <span className={`hidden sm:inline-flex badge ${m.season?.type === 'champions' ? 'badge-purple' : m.season?.type === 'cup' ? 'badge-yellow' : 'badge-blue'}`}>
                         {m.season?.name}

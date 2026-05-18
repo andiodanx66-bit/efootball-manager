@@ -5,6 +5,7 @@ import { Trophy, Users, Calendar, BarChart2, Play, Settings, ArrowLeft, Star, Sw
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { generateRoundRobin, generateKnockout, generateGroupStage } from '../utils/scheduler'
+import BackButton from '../components/layout/BackButton'
 
 // Scrollable tab container — hide scrollbar, support mouse/touch drag
 function TabScroller({ children, activeTab }) {
@@ -240,7 +241,7 @@ export default function SeasonDetail() {
   }
 
   if (loading) return <div className="flex justify-center p-12"><div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" /></div>
-  if (!season) return <div className="text-white/40 p-8">Kompetisi tidak ditemukan</div>
+  if (!season) return <div className="text-slate-400 p-8">Kompetisi tidak ditemukan</div>
 
   const rounds = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b)
   const groups = [...new Set(matches.map(m => m.group_id).filter(Boolean))]
@@ -249,16 +250,14 @@ export default function SeasonDetail() {
     <div className="space-y-6 animate-fade-in">
       {/* Back + header */}
       <div>
-        <Link to="/seasons" className="text-white/40 hover:text-white text-sm flex items-center gap-1 mb-3">
-          <ArrowLeft size={14} /> Kembali
-        </Link>
+        <BackButton fallback="/seasons" />
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-3">
               <h1 className="section-title">{season.name}</h1>
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <p className="text-white/40 text-sm">{teams.length} tim terdaftar · {matches.length} pertandingan</p>
+              <p className="text-sm" style={{color:'#94a3b8'}}>{teams.length} tim terdaftar · {matches.length} pertandingan</p>
             </div>
           </div>
           {isAdmin && (
@@ -266,7 +265,8 @@ export default function SeasonDetail() {
               {isAdmin && matches.length > 0 && (
                 <button
                   onClick={() => setShowDeleteMatchesModal(true)}
-                  className="text-white/30 hover:text-accent-red transition-colors p-1.5"
+                  className="transition-colors p-1.5 rounded-lg hover:bg-red-50 hover:text-accent-red"
+                  style={{color:'#94a3b8'}}
                   title="Hapus Semua Jadwal"
                 >
                   <Trash2 size={18} />
@@ -298,7 +298,7 @@ export default function SeasonDetail() {
 
       {/* Tabs */}
       <TabScroller activeTab={tab}>
-        <div className="flex gap-1 bg-pitch-mid p-1 rounded-xl w-max">
+        <div className="flex gap-1 p-1 rounded-xl w-max" style={{backgroundColor:"#f1f5f9"}}>
           {(() => {
           const baseTabs = ['matches']
           if (season.type === 'champions') baseTabs.push('draw')
@@ -308,7 +308,7 @@ export default function SeasonDetail() {
           if (isAdmin) baseTabs.push('teams')
           return baseTabs.map(t => (
             <button key={t} data-active={tab === t} onClick={() => { setTab(t); setSearchParams({ tab: t }) }}
-              className={`px-4 py-2 rounded-lg text-sm font-display font-medium transition-all ${tab === t ? 'bg-brand-600 text-white' : 'text-white/50 hover:text-white'}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-display font-medium transition-all ${tab === t ? 'bg-brand-600 text-white' : 'text-slate-500 hover:text-slate-900'}`}>
               {t === 'matches' ? 'Jadwal & Hasil' : t === 'standings' ? 'Klasemen' : t === 'draw' ? 'Undian Grup' : t === 'knockout' ? 'Fase Knockout' : t === 'bracket' ? 'Bagan Cup' : 'Tim'}
             </button>
           ))
@@ -322,10 +322,10 @@ export default function SeasonDetail() {
           {/* Hasil Terbaru Section */}
           {matches.filter(m => m.status === 'approved').length > 0 && (
             <div className="space-y-3">
-              <h2 className="font-display font-semibold text-sm flex items-center gap-2 text-white/50 px-1 uppercase tracking-wider">
-                <Trophy size={14} className="text-brand-400" /> ringkasan pertandingan
+              <h2 className="font-display font-semibold text-sm flex items-center gap-2 px-1 uppercase tracking-wider text-slate-400">
+                <Trophy size={14} className="text-brand-500" /> ringkasan pertandingan
               </h2>
-              <div className="card overflow-hidden divide-y divide-white/5 max-h-[calc(5*56px)] overflow-y-auto custom-scrollbar">
+              <div className="card overflow-hidden divide-y divide-slate-100 max-h-[calc(5*56px)] overflow-y-auto custom-scrollbar">
                 {matches
                   .filter(m => m.status === 'approved')
                   .sort((a, b) => {
@@ -338,14 +338,14 @@ export default function SeasonDetail() {
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <span className="text-sm font-medium truncate max-w-[80px]">{m.home_team?.name}</span>
                         <div
-                          className={`font-display font-bold text-sm bg-pitch-dark rounded-lg px-2 py-1 w-12 text-center shrink-0 ${m.screenshot_url ? 'cursor-pointer hover:bg-white/10' : ''}`}
+                          className={`font-display font-bold text-sm rounded-lg px-2 py-1 w-12 text-center shrink-0 border ${m.screenshot_url ? "cursor-pointer hover:bg-slate-100" : ""}`} style={{backgroundColor:"#f1f5f9",borderColor:"#e2e8f0"}}
                           onClick={() => m.screenshot_url && setImgModal(m.screenshot_url)}
                         >
                           {m.home_score}–{m.away_score}
                         </div>
                         <span className="text-sm font-medium truncate max-w-[80px]">{m.away_team?.name}</span>
                       </div>
-                      <div className="text-[10px] text-white/30 font-mono uppercase tracking-tighter shrink-0 flex flex-col items-end">
+                      <div className="text-[10px] text-slate-300 font-mono uppercase tracking-tighter shrink-0 flex flex-col items-end">
                         <span>{m.stage === 'league' ? `Pekan ${m.round}` : m.stage}</span>
                         {m.approved_at && (
                           <span>{new Date(m.approved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -358,7 +358,7 @@ export default function SeasonDetail() {
           )}
 
           {matches.length === 0 ? (
-            <div className="card p-10 text-center text-white/30">
+            <div className="card p-10 text-center text-slate-300">
               <Calendar size={36} className="mx-auto mb-3 opacity-30" />
               <p>Belum ada jadwal. {isAdmin && teams.length >= 2 ? 'Klik "Generate Jadwal" untuk membuat otomatis.' : ''}</p>
             </div>
@@ -368,7 +368,7 @@ export default function SeasonDetail() {
                   {/* Fase Grup */}
                   {groups.map(g => (
                     <div key={g} className="card overflow-hidden">
-                      <div className="px-5 py-3 border-b border-white/10 bg-pitch-dark/50">
+                      <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
                         <span className="font-display font-semibold text-sm text-accent-purple">Grup {g}</span>
                       </div>
                       <MatchList matches={matches.filter(m => m.group_id === g)} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
@@ -380,7 +380,7 @@ export default function SeasonDetail() {
                     if (koMatches.length === 0) return null
                     return (
                       <div key={ko.key} className="card overflow-hidden">
-                        <div className="px-5 py-3 border-b border-white/10 bg-pitch-dark/50">
+                        <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
                           <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
                         </div>
                         <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
@@ -390,8 +390,8 @@ export default function SeasonDetail() {
                 </>
               : rounds.map(r => (
                 <div key={r} className="card overflow-hidden">
-                  <div className="px-5 py-3 border-b border-white/10 bg-pitch-dark/50">
-                    <span className="font-display font-semibold text-sm text-brand-400">
+                  <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                    <span className="font-display font-semibold text-sm text-brand-600">
                       {season.type === 'cup'
                         ? (KO_ROUNDS.find(k => matches.find(m => m.round === r && m.stage === k.key))?.label || stageLabel(r, rounds.length))
                         : `Pekan ${r}`}
@@ -449,7 +449,7 @@ export default function SeasonDetail() {
       )}
 
       {showGenModal && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowGenModal(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowGenModal(false)}>
           <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
             {(() => {
               const existingRounds = [...new Set(matches.map(m => m.round))]
@@ -457,15 +457,15 @@ export default function SeasonDetail() {
               const totalRounds = season.type !== 'champions' ? getTotalRounds() : null
               return (
                 <>
-                  <h2 className="font-display font-bold text-lg mb-2">
+                  <h2 className="font-display font-bold text-lg mb-2 text-slate-900">
                     {season.type === 'champions' ? 'Generate Jadwal' : `Generate Pekan ${nextRound}`}
                   </h2>
-                  <p className="text-white/60 text-sm mb-1">
+                  <p className="text-slate-500 text-sm mb-1">
                     {season.type === 'champions'
                       ? 'Generate semua jadwal fase grup sekaligus.'
                       : `Akan membuat jadwal pertandingan untuk pekan ${nextRound}${totalRounds ? ` dari ${totalRounds}` : ''}.`}
                   </p>
-                  <p className="text-white/40 text-xs mb-5">Jadwal yang sudah di-generate tidak bisa diubah.</p>
+                  <p className="text-slate-400 text-xs mb-5">Jadwal yang sudah di-generate tidak bisa diubah.</p>
                 </>
               )
             })()}
@@ -478,11 +478,11 @@ export default function SeasonDetail() {
       )}
 
       {showDeleteMatchesModal && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowDeleteMatchesModal(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowDeleteMatchesModal(false)}>
           <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
-            <h2 className="font-display font-bold text-lg mb-2">Hapus Semua Jadwal</h2>
-            <p className="text-white/60 text-sm mb-1">Yakin ingin menghapus semua jadwal di <span className="text-white font-semibold">{season.name}</span>?</p>
-            <p className="text-white/40 text-xs mb-5">Kompetisi dan tim peserta tidak akan terhapus. Kamu bisa generate jadwal baru setelahnya.</p>
+            <h2 className="font-display font-bold text-lg mb-2 text-slate-900">Hapus Semua Jadwal</h2>
+            <p className="text-slate-500 text-sm mb-1">Yakin ingin menghapus semua jadwal di <span className="text-white font-semibold">{season.name}</span>?</p>
+            <p className="text-slate-400 text-xs mb-5">Kompetisi dan tim peserta tidak akan terhapus. Kamu bisa generate jadwal baru setelahnya.</p>
             <div className="flex gap-3">
               <button onClick={() => setShowDeleteMatchesModal(false)} className="btn-secondary flex-1 text-sm">Batal</button>
               <button onClick={deleteAllMatches} className="btn-danger flex-1 text-sm">Hapus Jadwal</button>
@@ -492,11 +492,11 @@ export default function SeasonDetail() {
       )}
 
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowDeleteModal(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowDeleteModal(false)}>
           <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
-            <h2 className="font-display font-bold text-lg mb-2">Hapus Kompetisi</h2>
-            <p className="text-white/60 text-sm mb-1">Yakin ingin menghapus <span className="text-white font-semibold">{season.name}</span>?</p>
-            <p className="text-white/40 text-xs mb-5">Semua jadwal, hasil pertandingan, tim terdaftar, dan data klasemen akan ikut terhapus permanen.</p>
+            <h2 className="font-display font-bold text-lg mb-2 text-slate-900">Hapus Kompetisi</h2>
+            <p className="text-slate-500 text-sm mb-1">Yakin ingin menghapus <span className="text-white font-semibold">{season.name}</span>?</p>
+            <p className="text-slate-400 text-xs mb-5">Semua jadwal, hasil pertandingan, tim terdaftar, dan data klasemen akan ikut terhapus permanen.</p>
             <div className="flex gap-3">
               <button onClick={() => setShowDeleteModal(false)} className="btn-secondary flex-1 text-sm">Batal</button>
               <button onClick={deleteSeason} className="btn-danger flex-1 text-sm">Hapus</button>
@@ -506,7 +506,7 @@ export default function SeasonDetail() {
       )}
 
       {imgModal && createPortal(
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setImgModal(null)}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setImgModal(null)}>
           <img src={imgModal} alt="bukti" className="max-w-full max-h-full rounded-xl object-contain" />
         </div>,
         document.body
@@ -559,7 +559,7 @@ function MatchList({ matches, isAdmin, myTeamId, onUpdate, season }) {
 
   return (
     <>
-      <div className="divide-y divide-white/5">
+      <div className="divide-y divide-slate-100">
         {matches.map(m => {
           const isHome   = myTeamId === m.home_team_id
           const isAway   = myTeamId === m.away_team_id
@@ -578,7 +578,7 @@ function MatchList({ matches, isAdmin, myTeamId, onUpdate, season }) {
                 )}
               </div>
               <div
-                className={`font-display font-bold text-sm bg-pitch-dark rounded-lg px-2 py-1 w-12 text-center shrink-0 ${m.screenshot_url ? 'cursor-pointer hover:bg-white/10' : ''}`}
+                className={`font-display font-bold text-sm rounded-lg px-2 py-1 w-12 text-center shrink-0 border ${m.screenshot_url ? "cursor-pointer hover:bg-slate-100" : ""}`} style={{backgroundColor:"#f1f5f9",borderColor:"#e2e8f0"}}
                 onClick={() => m.screenshot_url && setImgModal(m.screenshot_url)}
               >
                 {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
@@ -623,7 +623,7 @@ function MatchList({ matches, isAdmin, myTeamId, onUpdate, season }) {
       )}
 
       {imgModal && createPortal(
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setImgModal(null)}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setImgModal(null)}>
           <img src={imgModal} alt="bukti" className="max-w-full max-h-full rounded-xl object-contain" />
         </div>,
         document.body
@@ -694,20 +694,20 @@ function ScoreModal({ match, isAdmin, onClose, onSaved }) {
   }
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
-        <h2 className="font-display font-bold text-lg mb-1">Input Skor</h2>
-        {!isAdmin && <p className="text-white/40 text-xs mb-4">Skor akan menunggu persetujuan admin.</p>}
+        <h2 className="font-display font-bold text-lg mb-1 text-slate-900">Input Skor</h2>
+        {!isAdmin && <p className="text-slate-400 text-xs mb-4">Skor akan menunggu persetujuan admin.</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="flex-1 text-center">
-              <div className="text-xs text-white/50 mb-1.5 truncate">{match.home_team?.name}</div>
+              <div className="text-xs text-slate-400 mb-1.5 truncate">{match.home_team?.name}</div>
               <input type="number" min="0" required value={homeScore} onChange={e => setHomeScore(e.target.value)}
                 className="input text-center text-2xl font-display font-bold w-full" placeholder="0" />
             </div>
-            <span className="text-white/30 font-display font-bold text-xl mt-5">–</span>
+            <span className="text-slate-300 font-display font-bold text-xl mt-5">–</span>
             <div className="flex-1 text-center">
-              <div className="text-xs text-white/50 mb-1.5 truncate">{match.away_team?.name}</div>
+              <div className="text-xs text-slate-400 mb-1.5 truncate">{match.away_team?.name}</div>
               <input type="number" min="0" required value={awayScore} onChange={e => setAwayScore(e.target.value)}
                 className="input text-center text-2xl font-display font-bold w-full" placeholder="0" />
             </div>
@@ -715,14 +715,14 @@ function ScoreModal({ match, isAdmin, onClose, onSaved }) {
 
           {/* Screenshot upload */}
           <div>
-            <label className="text-sm text-white/60 mb-1.5 block">Bukti Screenshot</label>
+            <label className="text-sm text-slate-500 mb-1.5 block">Bukti Screenshot</label>
             <div
               onClick={() => fileRef.current.click()}
-              className="w-full h-28 rounded-xl border-2 border-dashed border-white/15 hover:border-brand-500/50 transition-colors cursor-pointer overflow-hidden flex items-center justify-center bg-white/5"
+              className="w-full h-28 rounded-xl border-2 border-dashed border-slate-200 hover:border-brand-400 transition-colors cursor-pointer overflow-hidden flex items-center justify-center bg-slate-50"
             >
               {preview
                 ? <img src={preview} alt="screenshot" className="w-full h-full object-cover" />
-                : <span className="text-xs text-white/30">Klik untuk upload gambar</span>}
+                : <span className="text-xs text-slate-300">Klik untuk upload gambar</span>}
             </div>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
           </div>
@@ -783,13 +783,13 @@ function StandingsTab({ seasonId, type, enrolledTeams }) {
       <div className="space-y-4">
         {groups.map(g => (
           <div key={g} className="card overflow-hidden">
-            <div className="px-5 py-3 border-b border-white/10 bg-pitch-dark/50">
+            <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
               <span className="font-display font-semibold text-sm text-accent-purple">Grup {g}</span>
             </div>
             <StandingsTable rows={buildRows(r => r.group_id === g)} />
           </div>
         ))}
-        {groups.length === 0 && <div className="card p-8 text-center text-white/30 text-sm">Belum ada data grup</div>}
+        {groups.length === 0 && <div className="card p-8 text-center text-slate-300 text-sm">Belum ada data grup</div>}
       </div>
     )
   }
@@ -812,7 +812,7 @@ function StandingsTable({ rows }) {
           <col style={{width: '2.5rem'}} />
         </colgroup>
         <thead>
-          <tr className="text-white/40 text-xs font-mono">
+          <tr className="text-slate-400 text-xs font-mono bg-slate-50">
             <th className="text-left pl-4 pr-1 py-2">#</th>
             <th className="text-left pl-1 pr-2 py-2">Tim</th>
             <th className="py-2 text-center">M</th>
@@ -820,16 +820,16 @@ function StandingsTable({ rows }) {
             <th className="py-2 text-center">D</th>
             <th className="py-2 text-center">L</th>
             <th className="py-2 text-center">GD</th>
-            <th className="py-2 pr-4 text-center text-brand-400">Pts</th>
+            <th className="py-2 pr-4 text-center text-brand-600">Pts</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-white/5">
+        <tbody className="divide-y divide-slate-100">
           {rows.map((r, i) => (
             <tr key={r.team_id} className="table-row-hover">
-              <td className="pl-4 pr-1 py-2.5 text-white/40 font-mono text-xs">{i + 1}</td>
+              <td className="pl-4 pr-1 py-2.5 text-slate-400 font-mono text-xs">{i + 1}</td>
               <td className="pl-1 pr-2 py-2.5">
-                <Link to={`/teams/${r.team_id}`} className="flex items-center gap-2 hover:text-brand-400 transition-colors group">
-                  <div className="w-6 h-6 rounded bg-white/10 flex items-center justify-center text-xs font-bold font-display text-brand-400 overflow-hidden shrink-0">
+                <Link to={`/teams/${r.team_id}`} className="flex items-center gap-2 hover:text-brand-600 transition-colors group">
+                  <div className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-xs font-bold font-display text-brand-600 overflow-hidden shrink-0">
                     {r.avatar_url
                       ? <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
                       : r.team_name?.[0]}
@@ -837,16 +837,16 @@ function StandingsTable({ rows }) {
                   <span className="font-medium group-hover:underline truncate">{r.team_name}</span>
                 </Link>
               </td>
-              <td className="py-2.5 text-center text-white/60">{r.played}</td>
+              <td className="py-2.5 text-center text-slate-500">{r.played}</td>
               <td className="py-2.5 text-center text-accent-green">{r.won}</td>
-              <td className="py-2.5 text-center text-white/60">{r.drawn}</td>
+              <td className="py-2.5 text-center text-slate-500">{r.drawn}</td>
               <td className="py-2.5 text-center text-accent-red">{r.lost}</td>
-              <td className="py-2.5 text-center text-white/60">{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
-              <td className="py-2.5 pr-4 text-center font-display font-bold text-brand-400">{r.pts}</td>
+              <td className="py-2.5 text-center text-slate-500">{r.gd > 0 ? `+${r.gd}` : r.gd}</td>
+              <td className="py-2.5 pr-4 text-center font-display font-bold text-brand-600">{r.pts}</td>
             </tr>
           ))}
           {rows.length === 0 && (
-            <tr><td colSpan={8} className="text-center py-8 text-white/30 text-sm">Belum ada data</td></tr>
+            <tr><td colSpan={8} className="text-center py-8 text-slate-300 text-sm">Belum ada data</td></tr>
           )}
         </tbody>
       </table>
@@ -950,8 +950,8 @@ function DrawTab({ seasonId, season, teams, isAdmin, myTeamId, onUpdate, hasMatc
           <div>
             <p className="font-display font-semibold text-sm">Undian Grup</p>
             {myGroupId
-              ? <p className="text-white/50 text-xs mt-0.5">Timmu masuk <span className="text-accent-purple font-bold">Grup {myGroupId}</span></p>
-              : <p className="text-white/50 text-xs mt-0.5">Klik tombol untuk ambil undian grup</p>}
+              ? <p className="text-slate-500 text-xs mt-0.5">Timmu masuk <span className="text-accent-purple font-bold">Grup {myGroupId}</span></p>
+              : <p className="text-slate-500 text-xs mt-0.5">Klik tombol untuk ambil undian grup</p>}
           </div>
           {!myGroupId
             ? <button onClick={drawGroup} disabled={drawing} className="btn-primary text-sm flex items-center gap-2 shrink-0">
@@ -968,7 +968,7 @@ function DrawTab({ seasonId, season, teams, isAdmin, myTeamId, onUpdate, hasMatc
             <p className="font-display font-semibold text-sm">
               {numGroups} Grup · {allDrawn ? 'Semua tim sudah diundi' : `${teams.filter(t => t.group_id).length}/${teams.length} tim sudah diundi`}
             </p>
-            <p className="text-white/40 text-xs mt-0.5">Tim yang belum diundi tidak akan masuk jadwal</p>
+            <p className="text-slate-400 text-xs mt-0.5">Tim yang belum diundi tidak akan masuk jadwal</p>
           </div>
           <div className="flex gap-2">
             {allDrawn && (
@@ -984,26 +984,26 @@ function DrawTab({ seasonId, season, teams, isAdmin, myTeamId, onUpdate, hasMatc
         const groupTeams = teams.filter(t => t.group_id === g)
         return (
           <div key={g} className="card overflow-hidden">
-            <div className="px-5 py-3 border-b border-white/10 bg-pitch-dark/50 flex items-center justify-between">
+            <div className="px-5 py-3 border-b flex items-center justify-between">
               <span className="font-display font-semibold text-sm text-accent-purple">Grup {g}</span>
-              <span className="text-xs text-white/30">{groupTeams.length} tim</span>
+              <span className="text-xs text-slate-300">{groupTeams.length} tim</span>
             </div>
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-slate-100">
               {groupTeams.map((st, i) => (
                 <div key={st.id} className="flex items-center gap-4 px-5 py-3">
-                  <span className="w-5 text-center text-white/30 font-mono text-xs">{i + 1}</span>
-                  <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold font-display text-brand-400 overflow-hidden">
+                  <span className="w-5 text-center text-slate-300 font-mono text-xs">{i + 1}</span>
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold font-display text-brand-600 overflow-hidden">
                     {st.team?.owner?.avatar_url
                       ? <img src={st.team.owner.avatar_url} alt="" className="w-full h-full object-cover" />
                       : st.team?.name?.[0]}
                   </div>
-                  <Link to={`/teams/${st.team_id}`} className="font-medium flex-1 hover:text-brand-300 transition-colors text-sm">{st.team?.name}</Link>
+                  <Link to={`/teams/${st.team_id}`} className="font-medium flex-1 hover:text-brand-700 transition-colors text-sm">{st.team?.name}</Link>
                   {isAdmin && !hasMatches && (
-                    <button onClick={() => resetDraw(st.team_id)} className="text-white/20 hover:text-accent-red transition-colors text-xs px-2 py-1 rounded">✕</button>
+                    <button onClick={() => resetDraw(st.team_id)} className="text-slate-300 hover:text-accent-red transition-colors text-xs px-2 py-1 rounded">✕</button>
                   )}
                 </div>
               ))}
-              {groupTeams.length === 0 && <div className="px-5 py-4 text-center text-white/20 text-xs">Belum ada tim</div>}
+              {groupTeams.length === 0 && <div className="px-5 py-4 text-center text-slate-300 text-xs">Belum ada tim</div>}
             </div>
           </div>
         )
@@ -1012,24 +1012,24 @@ function DrawTab({ seasonId, season, teams, isAdmin, myTeamId, onUpdate, hasMatc
       {/* Tim belum diundi */}
       {teams.filter(t => !t.group_id).length > 0 && (
         <div className="card overflow-hidden">
-          <div className="px-5 py-3 border-b border-white/10 bg-pitch-dark/50">
-            <span className="font-display font-semibold text-sm text-white/40">Daftar peserta belum mengundi</span>
+          <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+            <span className="font-display font-semibold text-sm text-slate-400">Daftar peserta belum mengundi</span>
           </div>
-          <div className="divide-y divide-white/5">
+          <div className="divide-y divide-slate-100">
             {teams.filter(t => !t.group_id).map(st => (
               <div key={st.id} className="flex items-center gap-4 px-5 py-3">
-                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold font-display text-brand-400 overflow-hidden">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold font-display text-brand-600 overflow-hidden">
                   {st.team?.owner?.avatar_url
                     ? <img src={st.team.owner.avatar_url} alt="" className="w-full h-full object-cover" />
                     : st.team?.name?.[0]}
                 </div>
-                <Link to={`/teams/${st.team_id}`} className="font-medium flex-1 hover:text-brand-300 transition-colors text-sm">{st.team?.name}</Link>
+                <Link to={`/teams/${st.team_id}`} className="font-medium flex-1 hover:text-brand-700 transition-colors text-sm">{st.team?.name}</Link>
                 {isAdmin && !hasMatches
                   ? <button onClick={() => drawGroupForTeam(st.team_id)} disabled={drawingTeamId === st.team_id}
                       className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1">
                       🎲 {drawingTeamId === st.team_id ? '...' : 'Undi'}
                     </button>
-                  : <span className="text-xs text-white/30">Belum mengundi</span>}
+                  : <span className="text-xs text-slate-300">Belum mengundi</span>}
               </div>
             ))}
           </div>
@@ -1070,52 +1070,52 @@ function TeamsTab({ seasonId, teams, isAdmin, onUpdate, hasMatches }) {
     <>
       <div className="card overflow-hidden">
         {isAdmin && !hasMatches && (
-          <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
-            <span className="text-sm text-white/50">{teams.length} tim terdaftar</span>
+          <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+            <span className="text-sm text-slate-500">{teams.length} tim terdaftar</span>
             <button onClick={openModal} className="btn-primary text-sm flex items-center gap-1.5 py-2">
               <Plus size={14} /> Atur Tim
             </button>
           </div>
         )}
         {isAdmin && hasMatches && (
-          <div className="px-5 py-2 border-b border-white/10 bg-accent-yellow/5">
+          <div className="px-5 py-2 border-b border-slate-200 bg-amber-50">
             <p className="text-xs text-accent-yellow/80">Jadwal sudah di-generate, tim tidak bisa diubah.</p>
           </div>
         )}
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-slate-100">
           {teams.map((st, i) => (
             <div key={st.id} className="flex items-center gap-4 px-5 py-3">
-              <span className="w-6 text-center text-white/30 font-mono text-xs">{i + 1}</span>
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold font-display text-brand-400 overflow-hidden">
+              <span className="w-6 text-center text-slate-300 font-mono text-xs">{i + 1}</span>
+              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold font-display text-brand-600 overflow-hidden">
                 {st.team?.owner?.avatar_url
                   ? <img src={st.team.owner.avatar_url} alt="" className="w-full h-full object-cover" />
                   : st.team?.name?.[0]}
               </div>
-              <Link to={`/teams/${st.team_id}`} className="font-medium flex-1 hover:text-brand-300 transition-colors text-sm">{st.team?.name}</Link>
+              <Link to={`/teams/${st.team_id}`} className="font-medium flex-1 hover:text-brand-700 transition-colors text-sm">{st.team?.name}</Link>
               {st.group_id && <span className="badge-purple text-xs">Grup {st.group_id}</span>}
             </div>
           ))}
-          {teams.length === 0 && <div className="p-8 text-center text-white/30 text-sm">Belum ada tim</div>}
+          {teams.length === 0 && <div className="p-8 text-center text-slate-300 text-sm">Belum ada tim</div>}
         </div>
       </div>
 
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
           <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
               <h2 className="font-display font-bold text-base">Atur Tim Peserta</h2>
-              <button onClick={() => setShowModal(false)} className="text-white/40 hover:text-white"><XCircle size={18} /></button>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
             </div>
             {allTeams.length === 0
-              ? <div className="p-8 text-center text-white/30 text-sm">Belum ada tim terdaftar</div>
+              ? <div className="p-8 text-center text-slate-300 text-sm">Belum ada tim terdaftar</div>
               : <>
-                  <div className="divide-y divide-white/5 overflow-y-auto flex-1">
+                  <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
                     {allTeams.map(t => {
                       const checked = selected.includes(t.id)
                       return (
                         <button key={t.id} onClick={() => toggleSelect(t.id)}
-                          className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-600/15' : 'hover:bg-white/5'}`}>
-                          <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center text-sm font-bold font-display text-brand-400 overflow-hidden shrink-0">
+                          className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
+                          <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-sm font-bold font-display text-brand-600 overflow-hidden shrink-0">
                             {t.owner?.avatar_url ? <img src={t.owner.avatar_url} alt="" className="w-full h-full object-cover" /> : t.name[0]}
                           </div>
                           <span className="font-medium text-sm flex-1">{t.name}</span>
@@ -1126,7 +1126,7 @@ function TeamsTab({ seasonId, teams, isAdmin, onUpdate, hasMatches }) {
                       )
                     })}
                   </div>
-                  <div className="px-5 py-4 border-t border-white/10 flex gap-3 shrink-0">
+                  <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
                     <button onClick={() => setShowModal(false)} className="btn-secondary flex-1 text-sm">Batal</button>
                     <button onClick={saveTeams} disabled={saving} className="btn-primary flex-1 text-sm">{saving ? 'Menyimpan...' : 'Simpan'}</button>
                   </div>
@@ -1338,7 +1338,7 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
       />
 
       {setupModal && createPortal(
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setSetupModal(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSetupModal(false)}>
           <SetupBracketModal
             enrolledTeams={enrolledTeams}
             seasonId={seasonId}
@@ -1362,7 +1362,7 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
       )}
 
       {genLegModal && createPortal(
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setGenLegModal(null)}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setGenLegModal(null)}>
           <GenLegModal
             nextLabel={genLegModal.nextLabel}
             onClose={() => setGenLegModal(null)}
@@ -1376,7 +1376,7 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
       )}
 
       {imgModal && createPortal(
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setImgModal(null)}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setImgModal(null)}>
           <img src={imgModal} alt="bukti" className="max-w-full max-h-full rounded-xl object-contain" />
         </div>,
         document.body
@@ -1445,12 +1445,12 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
   return (
     <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
         <div>
           <h2 className="font-display font-bold text-base">Setup Bracket</h2>
-          <p className="text-[10px] text-white/30 mt-0.5">Langkah {step} dari 2</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">Langkah {step} dari 2</p>
         </div>
-        <button onClick={onClose} className="text-white/40 hover:text-white"><XCircle size={18} /></button>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
       </div>
 
       {step === 1 && (
@@ -1458,7 +1458,7 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
           <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
             {/* Pilih babak awal */}
             <div>
-              <p className="text-xs text-white/50 mb-2 font-medium">Mulai dari babak</p>
+              <p className="text-xs text-slate-500 mb-2 font-medium">Mulai dari babak</p>
               <div className="grid grid-cols-1 gap-1.5">
                 {KO_ROUNDS.map(r => (
                   <button
@@ -1466,11 +1466,11 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
                     onClick={() => setStage(r.key)}
                     className={`flex items-center justify-between px-4 py-2.5 rounded-lg border text-sm font-medium transition-all text-left
                       ${stage === r.key
-                        ? 'bg-brand-600/20 border-brand-500 text-white'
-                        : 'bg-white/3 border-white/8 text-white/50 hover:text-white hover:border-white/20'}`}
+                        ? 'bg-brand-50 border-brand-500 text-brand-700'
+                        : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300'}`}
                   >
                     <span className="font-display font-semibold">{r.label}</span>
-                    <span className="text-[10px] text-white/30 font-mono">{teamCount[r.key]} tim</span>
+              <span className="text-[10px] text-slate-400 font-mono">{teamCount[r.key]} tim</span>
                   </button>
                 ))}
               </div>
@@ -1478,30 +1478,30 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
 
             {/* Pilih format leg */}
             <div>
-              <p className="text-xs text-white/50 mb-2 font-medium">Format pertandingan</p>
+              <p className="text-xs text-slate-500 mb-2 font-medium">Format pertandingan</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setLegs(1)}
                   className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
-                    ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+                    ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
                 >
                   1 Leg
                 </button>
                 <button
                   onClick={() => setLegs(2)}
                   className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
-                    ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+                    ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
                 >
                   2 Leg
                 </button>
               </div>
-              <p className="text-[10px] text-white/30 mt-1.5">
+              <p className="text-[10px] text-slate-400 mt-1.5">
                 {legs === 1 ? '1 pertandingan per pasangan.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat.'}
               </p>
             </div>
           </div>
 
-          <div className="px-5 py-4 border-t border-white/10 flex gap-3 shrink-0">
+          <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
             <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
             <button onClick={() => setStep(2)} disabled={!stage} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
               Pilih Tim <ArrowLeft size={13} className="rotate-180" />
@@ -1514,10 +1514,10 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
         <>
           <div className="px-5 pt-3 pb-1 shrink-0">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-white/50">
-                Pilih tim untuk <span className="text-white font-semibold">{KO_ROUNDS.find(r => r.key === stage)?.label}</span>
+              <p className="text-xs text-slate-500">
+                Pilih tim untuk <span className="font-semibold text-slate-800">{KO_ROUNDS.find(r => r.key === stage)?.label}</span>
               </p>
-              <span className={`text-[10px] font-mono ${selected.length > needed ? 'text-accent-red' : selected.length === needed ? 'text-accent-green' : 'text-white/30'}`}>
+              <span className={`text-[10px] font-mono ${selected.length > needed ? 'text-accent-red' : selected.length === needed ? 'text-accent-green' : 'text-slate-400'}`}>
                 {selected.length}/{needed}
               </span>
             </div>
@@ -1526,17 +1526,17 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
             )}
           </div>
 
-          <div className="divide-y divide-white/5 overflow-y-auto flex-1">
+          <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
             {teamList.map(t => {
               const checked = selected.includes(t.id)
               return (
                 <button key={t.id} onClick={() => toggleTeam(t.id)}
-                  className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-600/15' : 'hover:bg-white/5'}`}>
-                  <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold text-brand-400 overflow-hidden shrink-0">
+                  className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-brand-600 overflow-hidden shrink-0">
                     {t.owner?.avatar_url ? <img src={t.owner.avatar_url} alt="" className="w-full h-full object-cover" /> : t.name[0]}
                   </div>
                   <span className="font-medium text-sm flex-1">{t.name}</span>
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-white/20'}`}>
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-slate-300'}`}>
                     {checked && <Check size={12} className="text-white" />}
                   </div>
                 </button>
@@ -1544,7 +1544,7 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
             })}
           </div>
 
-          <div className="px-5 py-4 border-t border-white/10 flex gap-3 shrink-0">
+          <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
             <button onClick={() => setStep(1)} className="btn-secondary text-sm px-4">
               <ArrowLeft size={14} />
             </button>
@@ -1569,28 +1569,28 @@ function GenLegModal({ nextLabel, onClose, onConfirm }) {
     <div className="card w-full max-w-xs animate-slide-in p-5 space-y-4" onClick={e => e.stopPropagation()}>
       <div className="flex items-center justify-between">
         <h2 className="font-display font-bold text-base">Generate {nextLabel}</h2>
-        <button onClick={onClose} className="text-white/40 hover:text-white"><XCircle size={17} /></button>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={17} /></button>
       </div>
 
       <div>
-        <p className="text-xs text-white/40 mb-2">Format pertandingan</p>
+        <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
         <div className="flex gap-2">
           <button
             onClick={() => setLegs(1)}
             className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
-              ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+              ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
           >
             1 Leg
           </button>
           <button
             onClick={() => setLegs(2)}
             className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
-              ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+              ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
           >
             2 Leg
           </button>
         </div>
-        <p className="text-[10px] text-white/30 mt-1.5">
+        <p className="text-[10px] text-slate-400 mt-1.5">
           {legs === 1
             ? '1 pertandingan per pasangan. Pemenang langsung lolos.'
             : '2 pertandingan per pasangan (home & away). Pemenang dari agregat skor.'}
@@ -1621,7 +1621,7 @@ function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClic
 
   if (rounds.length === 0) {
     return (
-      <div className="card p-10 text-center text-white/20 text-sm">
+      <div className="card p-10 text-center text-slate-300 text-sm">
         <Trophy size={32} className="mx-auto mb-3 opacity-20" />
         Belum ada data bracket. Admin dapat menambahkan tim via tombol di atas.
       </div>
@@ -1689,7 +1689,7 @@ function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClic
       if (bot) {
         const midY = (top.cy + bot.cy) / 2
         connectors.push(
-          <g key={`conn-${ci}-${ni}`} stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" fill="none">
+          <g key={`conn-${ci}-${ni}`} stroke="#cbd5e1" strokeWidth="1.5" fill="none">
             <path d={`M${x1},${top.cy} H${mx} V${midY}`} />
             <path d={`M${x1},${bot.cy} H${mx} V${midY}`} />
             <path d={`M${mx},${midY} H${x2}`} />
@@ -1697,7 +1697,7 @@ function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClic
         )
       } else {
         connectors.push(
-          <g key={`conn-${ci}-${ni}`} stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" fill="none">
+          <g key={`conn-${ci}-${ni}`} stroke="#cbd5e1" strokeWidth="1.5" fill="none">
             <path d={`M${x1},${top.cy} H${x2}`} />
           </g>
         )
@@ -1709,7 +1709,7 @@ function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClic
     <div className="card overflow-hidden">
       <div className="overflow-x-auto custom-scrollbar">
         {/* Header label babak — ikut scroll bersama SVG */}
-        <div className="flex border-b border-white/10 bg-pitch-dark/60" style={{ minWidth: svgW + 24 }}>
+        <div className="flex border-b border-slate-200 bg-slate-50/60" style={{ minWidth: svgW + 24 }}>
           {rounds.map((r, ci) => (
             <div key={r.key} style={{ width: CARD_W, marginLeft: ci === 0 ? 12 : COL_GAP, flexShrink: 0 }} className="px-2 py-2 text-center">
               <div className="flex items-center justify-center gap-1.5">
@@ -1757,8 +1757,8 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
     return (
       <foreignObject x={x} y={y} width={CARD_W} height={cardH}>
         <div xmlns="http://www.w3.org/1999/xhtml"
-          className="w-full h-full rounded-lg border border-dashed border-white/10 flex items-center justify-center">
-          <span className="text-[10px] text-white/20 font-mono">TBD</span>
+          className="w-full h-full rounded-lg border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center">
+          <span className="text-[10px] text-slate-300 font-mono">TBD</span>
         </div>
       </foreignObject>
     )
@@ -1776,7 +1776,7 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
       <foreignObject x={x} y={y} width={CARD_W} height={cardH}>
         <div xmlns="http://www.w3.org/1999/xhtml"
           className={`w-full h-full rounded-lg border flex flex-col overflow-hidden text-[11px] font-medium
-            ${m?.status === 'approved' ? 'border-white/20 bg-pitch-dark' : 'border-white/10 bg-pitch-mid'}`}>
+            ${m?.status === 'approved' ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'}`}>
           <BcTeamRow team={m?.home_team} score={hasScore ? m.home_score : null} isWinner={homeWin}
             onImgClick={m?.screenshot_url ? () => onImgClick(m.screenshot_url) : null} hasBorder />
           <BcTeamRow team={m?.away_team} score={hasScore ? m.away_score : null} isWinner={awayWin}
@@ -1805,19 +1805,19 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
     <foreignObject x={x} y={y} width={CARD_W} height={cardH}>
       <div xmlns="http://www.w3.org/1999/xhtml"
         className={`w-full h-full rounded-lg border flex flex-col overflow-hidden text-[11px] font-medium
-          ${allDone ? 'border-white/20 bg-pitch-dark' : 'border-white/10 bg-pitch-mid'}`}>
+          ${allDone ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'}`}>
 
         {/* Header: nama tim A vs tim B */}
-        <div className="flex items-center justify-between px-2 py-1 border-b border-white/10 bg-black/20 shrink-0">
+        <div className="flex items-center justify-between px-2 py-1 border-b border-slate-200 bg-slate-50 shrink-0">
           <div className="flex items-center gap-1 min-w-0 flex-1">
             <BcAvatar team={teamA} />
-            <span className={`truncate text-[10px] font-semibold leading-tight ${aggWinA ? 'text-white' : 'text-white/60'}`}>
+            <span className={`truncate text-[10px] font-semibold leading-tight ${aggWinA ? 'text-brand-700' : 'text-slate-500'}`}>
               {teamA?.name ?? 'TBD'}
             </span>
           </div>
-          <span className="text-white/20 text-[9px] font-mono mx-1 shrink-0">vs</span>
+          <span className="text-slate-300 text-[9px] font-mono mx-1 shrink-0">vs</span>
           <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
-            <span className={`truncate text-[10px] font-semibold leading-tight text-right ${aggWinB ? 'text-white' : 'text-white/60'}`}>
+            <span className={`truncate text-[10px] font-semibold leading-tight text-right ${aggWinB ? 'text-brand-700' : 'text-slate-500'}`}>
               {teamB?.name ?? 'TBD'}
             </span>
             <BcAvatar team={teamB} />
@@ -1848,10 +1848,10 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
         />
 
         {/* Agregat */}
-        <div className={`flex items-center justify-center gap-1.5 px-2 py-1 border-t border-white/10 shrink-0 ${allDone ? 'bg-black/30' : 'bg-black/10'}`}>
-          <span className={`font-display font-bold text-[11px] ${aggWinA ? 'text-accent-green' : 'text-white/30'}`}>{aggA ?? '-'}</span>
-          <span className="text-[9px] text-white/20 font-mono">agg</span>
-          <span className={`font-display font-bold text-[11px] ${aggWinB ? 'text-accent-green' : 'text-white/30'}`}>{aggB ?? '-'}</span>
+        <div className={`flex items-center justify-center gap-1.5 px-2 py-1 border-t border-slate-200 shrink-0 ${allDone ? 'bg-slate-100' : 'bg-slate-50'}`}>
+          <span className={`font-display font-bold text-[11px] ${aggWinA ? 'text-accent-green' : 'text-slate-400'}`}>{aggA ?? '-'}</span>
+          <span className="text-[9px] text-slate-400 font-mono">agg</span>
+          <span className={`font-display font-bold text-[11px] ${aggWinB ? 'text-accent-green' : 'text-slate-400'}`}>{aggB ?? '-'}</span>
         </div>
       </div>
     </foreignObject>
@@ -1860,7 +1860,7 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
 
 function BcAvatar({ team }) {
   return (
-    <div className="w-4 h-4 rounded bg-white/10 flex items-center justify-center text-[8px] font-bold text-brand-400 overflow-hidden shrink-0">
+    <div className="w-4 h-4 rounded bg-slate-100 flex items-center justify-center text-[8px] font-bold text-brand-600 overflow-hidden shrink-0">
       {team?.owner?.avatar_url
         ? <img src={team.owner.avatar_url} alt="" className="w-full h-full object-cover" />
         : team?.name?.[0] ?? '?'}
@@ -1870,13 +1870,13 @@ function BcAvatar({ team }) {
 
 function BcTeamRow({ team, score, isWinner, onImgClick, hasBorder }) {
   return (
-    <div className={`flex items-center gap-1.5 px-2 flex-1 min-w-0 ${hasBorder ? 'border-b border-white/5' : ''} ${isWinner ? 'bg-brand-600/20' : ''}`}>
+    <div className={`flex items-center gap-1.5 px-2 flex-1 min-w-0 ${hasBorder ? 'border-b border-slate-100' : ''} ${isWinner ? 'bg-brand-50' : ''}`}>
       <BcAvatar team={team} />
-      <span className={`flex-1 truncate leading-tight ${isWinner ? 'text-white font-semibold' : 'text-white/70'}`}>
+      <span className={`flex-1 truncate leading-tight ${isWinner ? 'text-brand-700 font-semibold' : 'text-slate-600'}`}>
         {team?.name ?? 'TBD'}
       </span>
       {score !== null && (
-        <span className={`font-display font-bold shrink-0 w-4 text-center ${isWinner ? 'text-white' : 'text-white/40'}`}
+        <span className={`font-display font-bold shrink-0 w-4 text-center ${isWinner ? 'text-brand-700' : 'text-slate-400'}`}
           onClick={onImgClick ?? undefined} style={{ cursor: onImgClick ? 'pointer' : 'default' }}>
           {score}
         </span>
@@ -1887,37 +1887,37 @@ function BcTeamRow({ team, score, isWinner, onImgClick, hasBorder }) {
 
 function BcLegRow({ label, scoreA, scoreB, done, pending, isAdmin, onApprove, onScore, onDelete, onImgClick, hasBorderTop }) {
   return (
-    <div className={`flex items-center gap-1 px-1.5 py-1 shrink-0 ${hasBorderTop ? 'border-t border-white/5' : ''} ${done ? 'bg-black/10' : ''}`}>
-      <span className="text-[9px] text-white/25 font-mono w-4 shrink-0">{label}</span>
+    <div className={`flex items-center gap-1 px-1.5 py-1 shrink-0 ${hasBorderTop ? 'border-t border-slate-100' : ''} ${done ? 'bg-slate-50' : ''}`}>
+      <span className="text-[9px] text-slate-400 font-mono w-4 shrink-0">{label}</span>
       <div className="flex-1 flex items-center justify-center gap-1"
         onClick={onImgClick ?? undefined} style={{ cursor: onImgClick ? 'pointer' : 'default' }}>
         {scoreA !== null && scoreB !== null
           ? <>
-              <span className={`font-display font-bold text-[11px] w-4 text-center ${scoreA > scoreB ? 'text-white' : 'text-white/35'}`}>{scoreA}</span>
-              <span className="text-white/20 text-[9px]">-</span>
-              <span className={`font-display font-bold text-[11px] w-4 text-center ${scoreB > scoreA ? 'text-white' : 'text-white/35'}`}>{scoreB}</span>
+              <span className={`font-display font-bold text-[11px] w-4 text-center ${scoreA > scoreB ? 'text-brand-700' : 'text-slate-400'}`}>{scoreA}</span>
+              <span className="text-slate-300 text-[9px]">-</span>
+              <span className={`font-display font-bold text-[11px] w-4 text-center ${scoreB > scoreA ? 'text-brand-700' : 'text-slate-400'}`}>{scoreB}</span>
             </>
-          : <span className="text-white/15 text-[9px] font-mono">vs</span>
+          : <span className="text-slate-300 text-[9px] font-mono">vs</span>
         }
       </div>
       <div className="flex items-center gap-0.5 shrink-0">
-        {done && <span className="text-[8px] text-accent-green">v</span>}
+        {done && <span className="text-[8px] text-accent-green">✓</span>}
         {pending && !done && <Clock size={8} className="text-accent-yellow" />}
         {isAdmin && (
           <>
             {pending && onApprove && (
-              <button onClick={onApprove} className="w-4 h-4 rounded flex items-center justify-center hover:bg-accent-green/30" title="Approve">
+              <button onClick={onApprove} className="w-4 h-4 rounded flex items-center justify-center hover:bg-accent-green/20" title="Approve">
                 <Check size={8} className="text-accent-green" />
               </button>
             )}
             {onScore && (
-              <button onClick={onScore} className="w-4 h-4 rounded flex items-center justify-center hover:bg-brand-500/30" title="Edit">
-                <Pencil size={8} className="text-brand-400" />
+              <button onClick={onScore} className="w-4 h-4 rounded flex items-center justify-center hover:bg-brand-100" title="Edit">
+                <Pencil size={8} className="text-brand-600" />
               </button>
             )}
             {onDelete && (
-              <button onClick={onDelete} className="w-4 h-4 rounded flex items-center justify-center hover:bg-accent-red/20" title="Hapus">
-                <XCircle size={8} className="text-white/25" />
+              <button onClick={onDelete} className="w-4 h-4 rounded flex items-center justify-center hover:bg-red-50" title="Hapus">
+                <XCircle size={8} className="text-slate-400" />
               </button>
             )}
           </>
@@ -1930,21 +1930,21 @@ function BcLegRow({ label, scoreA, scoreB, done, pending, isAdmin, onApprove, on
 function BcActionRow({ m, isAdmin, onApprove, onScore, onDelete }) {
   if (!m) return null
   return (
-    <div className="flex items-center justify-end gap-0.5 px-1 py-0.5 border-t border-white/5 bg-black/20 shrink-0">
-      {m.status === 'approved' && <span className="text-[9px] text-accent-green font-mono mr-auto pl-1">v</span>}
+    <div className="flex items-center justify-end gap-0.5 px-1 py-0.5 border-t border-slate-100 bg-slate-50 shrink-0">
+      {m.status === 'approved' && <span className="text-[9px] text-accent-green font-mono mr-auto pl-1">✓</span>}
       {m.status === 'pending_result' && !isAdmin && <Clock size={9} className="text-accent-yellow mr-auto ml-1" />}
       {isAdmin && (
         <>
           {m.status === 'pending_result' && (
-            <button onClick={onApprove} className="w-5 h-5 rounded flex items-center justify-center hover:bg-accent-green/30 transition-colors" title="Approve">
+            <button onClick={onApprove} className="w-5 h-5 rounded flex items-center justify-center hover:bg-accent-green/20 transition-colors" title="Approve">
               <Check size={10} className="text-accent-green" />
             </button>
           )}
-          <button onClick={onScore} className="w-5 h-5 rounded flex items-center justify-center hover:bg-brand-500/30 transition-colors" title="Edit skor">
-            <Pencil size={10} className="text-brand-400" />
+          <button onClick={onScore} className="w-5 h-5 rounded flex items-center justify-center hover:bg-brand-100 transition-colors" title="Edit skor">
+            <Pencil size={10} className="text-brand-600" />
           </button>
-          <button onClick={onDelete} className="w-5 h-5 rounded flex items-center justify-center hover:bg-accent-red/30 transition-colors" title="Hapus">
-            <XCircle size={10} className="text-white/30" />
+          <button onClick={onDelete} className="w-5 h-5 rounded flex items-center justify-center hover:bg-red-50 transition-colors" title="Hapus">
+            <XCircle size={10} className="text-slate-400" />
           </button>
         </>
       )}
@@ -2022,64 +2022,64 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
   }
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
           <h2 className="font-display font-bold text-base">Kelola Tim — {stageLabel}</h2>
           <div className="flex items-center gap-3">
-            <span className={`text-sm font-display font-bold tabular-nums ${isExact ? 'text-accent-green' : tooMany ? 'text-accent-red' : 'text-white/40'}`}>
-              {selected.length}<span className="text-white/20 font-normal">/{needed}</span>
+            <span className={`text-sm font-display font-bold tabular-nums ${isExact ? 'text-accent-green' : tooMany ? 'text-accent-red' : 'text-slate-400'}`}>
+              {selected.length}<span className="text-slate-300 font-normal">/{needed}</span>
             </span>
-            <button onClick={onClose} className="text-white/40 hover:text-white"><XCircle size={18} /></button>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
           </div>
         </div>
         {(tooMany || (tooFew && selected.length > 0)) && (
-          <div className={`px-5 py-2 text-[11px] shrink-0 ${tooMany ? 'text-accent-red bg-accent-red/5' : 'text-white/40 bg-white/3'}`}>
+          <div className={`px-5 py-2 text-[11px] shrink-0 ${tooMany ? 'text-accent-red bg-red-50' : 'text-slate-500 bg-slate-50'}`}>
             {tooMany
               ? `Terlalu banyak. ${stageLabel} butuh tepat ${needed} tim.`
               : `Butuh ${needed - selected.length} tim lagi untuk ${stageLabel}.`}
           </div>
         )}
         <div className="px-5 pt-4 pb-2 shrink-0">
-          <p className="text-xs text-white/40 mb-2">Format pertandingan</p>
+          <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
           <div className="flex gap-2">
             <button
               onClick={() => setLegs(1)}
-              className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+              className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
             >
               1 Leg
             </button>
             <button
               onClick={() => setLegs(2)}
-              className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:text-white'}`}
+              className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
             >
               2 Leg
             </button>
           </div>
-          <p className="text-[10px] text-white/30 mt-1.5">
+          <p className="text-[10px] text-slate-300 mt-1.5">
             {legs === 1 ? '1 pertandingan per pasangan. Pemenang langsung lolos.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat skor.'}
           </p>
         </div>
 
-        <p className="px-5 pt-2 pb-1 text-xs text-white/40">Pilih tim yang masuk babak ini, lalu klik Acak untuk generate laga secara random.</p>
-        <div className="divide-y divide-white/5 overflow-y-auto flex-1 mt-1">
+        <p className="px-5 pt-2 pb-1 text-xs text-slate-400">Pilih tim yang masuk babak ini, lalu klik Acak untuk generate laga secara random.</p>
+        <div className="divide-y divide-slate-100 overflow-y-auto flex-1 mt-1">
           {teamList.map(t => {
             const checked = selected.includes(t.id)
             return (
               <button key={t.id} onClick={() => toggleTeam(t.id)}
-                className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-600/15' : 'hover:bg-white/5'}`}>
-                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold text-brand-400 overflow-hidden shrink-0">
+                className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
+                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-brand-600 overflow-hidden shrink-0">
                   {t.owner?.avatar_url ? <img src={t.owner.avatar_url} alt="" className="w-full h-full object-cover" /> : t.name[0]}
                 </div>
                 <span className="font-medium text-sm flex-1">{t.name}</span>
-                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-white/20'}`}>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-slate-300'}`}>
                   {checked && <Check size={12} className="text-white" />}
                 </div>
               </button>
             )
           })}
         </div>
-        <div className="px-5 py-4 border-t border-white/10 flex gap-3 shrink-0">
+        <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
           <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
           <button onClick={handleRandom} disabled={saving || !isExact} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
             🎲 {saving ? 'Menyimpan...' : `Acak (${selected.length} tim)`}
@@ -2090,3 +2090,4 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
     document.body
   )
 }
+

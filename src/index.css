@@ -4,114 +4,162 @@
 
 @layer base {
   body {
-    @apply bg-pitch-dark text-white font-body;
-    background-image: radial-gradient(ellipse at 20% 50%, rgba(14, 165, 233, 0.05) 0%, transparent 50%),
-                      radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+    @apply font-body;
+    color: #0f172a;
+    background-color: #f8fafc;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-display tracking-wide;
+    color: #0f172a;
   }
 }
 
 @layer components {
+
+  /* ── Cards ─────────────────────────────────────────────────────────── */
   .card {
-    @apply bg-pitch-mid border border-white/10 rounded-xl backdrop-blur-sm;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px 0 rgba(0,0,0,0.07), 0 1px 2px -1px rgba(0,0,0,0.05);
   }
 
   .card-hover {
-    @apply card transition-all duration-200 hover:border-brand-500/40 hover:shadow-lg hover:shadow-brand-500/10;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px 0 rgba(0,0,0,0.07), 0 1px 2px -1px rgba(0,0,0,0.05);
+    transition: all 0.2s;
+  }
+  .card-hover:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
   }
 
+  /* ── Buttons ────────────────────────────────────────────────────────── */
   .btn-primary {
-    @apply bg-brand-600 hover:bg-brand-500 text-white font-display font-semibold 
-           px-6 py-2.5 rounded-lg transition-all duration-200 
-           shadow-lg shadow-brand-600/20 hover:shadow-brand-500/30
+    @apply bg-brand-600 hover:bg-brand-700 text-white font-display font-semibold
+           px-6 py-2.5 rounded-lg transition-all duration-200
            disabled:opacity-50 disabled:cursor-not-allowed;
+    box-shadow: 0 1px 3px 0 rgba(37,99,235,0.2);
   }
 
   .btn-secondary {
-    @apply bg-white/10 hover:bg-white/20 text-white font-display font-semibold 
-           px-6 py-2.5 rounded-lg transition-all duration-200 border border-white/10
+    @apply font-display font-semibold px-6 py-2.5 rounded-lg transition-all duration-200
            disabled:opacity-50 disabled:cursor-not-allowed;
+    background-color: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
   }
+  .btn-secondary:hover { background-color: #e2e8f0; }
 
   .btn-danger {
-    @apply bg-accent-red/20 hover:bg-accent-red/30 text-accent-red font-display font-semibold
-           px-6 py-2.5 rounded-lg transition-all duration-200 border border-accent-red/30;
+    @apply text-accent-red font-display font-semibold px-6 py-2.5 rounded-lg transition-all duration-200;
+    background-color: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
   }
+  .btn-danger:hover { background-color: rgba(239,68,68,0.2); }
 
   .btn-success {
-    @apply bg-accent-green/20 hover:bg-accent-green/30 text-accent-green font-display font-semibold
-           px-6 py-2.5 rounded-lg transition-all duration-200 border border-accent-green/30;
+    @apply text-accent-green font-display font-semibold px-6 py-2.5 rounded-lg transition-all duration-200;
+    background-color: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.3);
   }
+  .btn-success:hover { background-color: rgba(16,185,129,0.2); }
 
+  /* ── Inputs ─────────────────────────────────────────────────────────── */
   .input {
-    @apply bg-pitch-dark border border-white/20 text-white rounded-lg px-4 py-2.5
-           focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/50
-           placeholder:text-white/30 transition-all duration-200 w-full;
+    @apply rounded-lg px-4 py-2.5 transition-all duration-200 w-full;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    outline: none;
+  }
+  .input::placeholder { color: #94a3b8; }
+  .input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
   }
 
+  /* ── Badges ─────────────────────────────────────────────────────────── */
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium font-mono;
   }
 
-  .badge-green  { @apply badge bg-accent-green/20  text-accent-green; }
-  .badge-yellow { @apply badge bg-accent-yellow/20 text-accent-yellow; }
-  .badge-red    { @apply badge bg-accent-red/20    text-accent-red; }
-  .badge-blue   { @apply badge bg-brand-500/20     text-brand-400; }
-  .badge-gray   { @apply badge bg-white/10         text-white/60; }
-  .badge-purple { @apply badge bg-accent-purple/20 text-accent-purple; }
+  .badge-green  { @apply badge text-accent-green;  background-color: rgba(16,185,129,0.1); }
+  .badge-yellow { @apply badge text-accent-yellow; background-color: rgba(245,158,11,0.1); }
+  .badge-red    { @apply badge text-accent-red;    background-color: rgba(239,68,68,0.1); }
+  .badge-blue   { @apply badge text-brand-600;     background-color: #dbeafe; }
+  .badge-gray   { @apply badge text-slate-500;     background-color: #f1f5f9; }
+  .badge-purple { @apply badge text-accent-purple; background-color: rgba(139,92,246,0.1); }
 
+  /* ── Table ──────────────────────────────────────────────────────────── */
   .table-row-hover {
-    @apply hover:bg-white/5 transition-colors duration-150;
+    transition: background-color 0.15s;
   }
+  .table-row-hover:hover { background-color: #f1f5f9; }
 
+  /* ── Typography ─────────────────────────────────────────────────────── */
   .section-title {
     @apply text-2xl font-display font-bold tracking-wider uppercase;
+    color: #0f172a;
   }
 
+  /* ── Stat card ──────────────────────────────────────────────────────── */
   .stat-card {
-    @apply card p-5 flex flex-col gap-1;
+    @apply p-5 flex flex-col gap-1;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px 0 rgba(0,0,0,0.07), 0 1px 2px -1px rgba(0,0,0,0.05);
   }
 
+  /* ── Nav links ──────────────────────────────────────────────────────── */
   .nav-link {
-    @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10
+    @apply flex items-center gap-2.5 px-3 py-2 rounded-lg
            transition-all duration-200 font-body text-sm font-medium;
+    color: #64748b;
+  }
+  .nav-link:hover {
+    color: #0f172a;
+    background-color: #f1f5f9;
   }
 
   .nav-link-active {
-    @apply nav-link text-white bg-brand-600/20 border border-brand-500/30;
+    @apply flex items-center gap-2.5 px-3 py-2 rounded-lg
+           transition-all duration-200 font-body text-sm font-semibold;
+    color: #2563eb;
+    background-color: #eff6ff;
+    border: 1px solid #bfdbfe;
   }
 }
 
-/* Scrollbar */
-::-webkit-scrollbar       { width: 6px; height: 6px; }
+/* ── Scrollbar ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { @apply bg-white/20 rounded-full; }
-::-webkit-scrollbar-thumb:hover { @apply bg-white/30; }
+::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-/* Pitch lines background pattern */
+/* ── Subtle grid background ─────────────────────────────────────────────── */
 .pitch-bg {
-  background-image: 
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-  background-size: 60px 60px;
+  background-color: #f8fafc;
+  background-image:
+    linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
 
-/* Hide scrollbar utility */
+/* ── Hide scrollbar utility ─────────────────────────────────────────────── */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
-/* ── Light mode via filter ──────────────────────────────────────────────────
-   Invert semua warna lalu hue-rotate 180° agar foto/avatar tidak ikut aneh.
-   Gambar dan screenshot dikecualikan via .no-invert.
-*/
-html.light {
+/* ── Dark mode (opt-in via html.dark) ───────────────────────────────────── */
+html.dark {
   filter: invert(1) hue-rotate(180deg);
 }
-html.light img,
-html.light video,
-html.light [data-no-invert] {
-  filter: invert(1) hue-rotate(180deg); /* balik lagi ke normal */
+html.dark img,
+html.dark video,
+html.dark [data-no-invert] {
+  filter: invert(1) hue-rotate(180deg);
 }

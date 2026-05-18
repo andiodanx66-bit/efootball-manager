@@ -61,7 +61,7 @@ export default function SeasonsPage() {
 
           {others.length > 0 && (
             <div>
-              <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">Lainnya</h2>
+              <h2 className="text-xs font-mono text-ink-faint uppercase tracking-widest mb-3">Lainnya</h2>
               <div className="space-y-3">
                 {others.map(s => (
                   <SeasonCard key={s.id} season={s} editMode={editMode && isAdmin} onUpdate={fetchSeasons} />
@@ -72,8 +72,8 @@ export default function SeasonsPage() {
 
           {seasons.length === 0 && (
             <div className="card p-12 text-center">
-              <Trophy size={40} className="text-white/20 mx-auto mb-3" />
-              <p className="text-white/40">Belum ada kompetisi</p>
+              <Trophy size={40} className="text-ink-faint mx-auto mb-3" />
+              <p className="text-ink-faint">Belum ada kompetisi</p>
             </div>
           )}
         </>
@@ -89,7 +89,7 @@ export default function SeasonsPage() {
 
       {/* FAB: pensil → menu Edit / Tambah */}
       {isAdmin && (
-        <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-2">
+        <div className="fixed bottom-[calc(4rem+1.5rem)] lg:bottom-6 right-6 z-40 flex flex-col items-end gap-2">
           {fabMenuOpen && (
             <>
               <div
@@ -99,7 +99,7 @@ export default function SeasonsPage() {
               />
               <div
                 role="menu"
-                className="relative z-[45] mb-1 min-w-[11rem] rounded-xl border border-white/10 bg-[#12141c] py-1 shadow-xl animate-slide-in"
+                className="relative z-[45] mb-1 min-w-[11rem] rounded-xl border border-surface-border bg-white py-1 shadow-card-md animate-slide-in"
               >
                 <button
                   type="button"
@@ -109,7 +109,7 @@ export default function SeasonsPage() {
                     setFabMenuOpen(false)
                   }}
                   className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm font-display font-semibold text-left transition-colors
-                    ${editMode ? 'text-accent-yellow hover:bg-accent-yellow/10' : 'text-white/90 hover:bg-white/10'}`}
+                    ${editMode ? 'text-accent-yellow hover:bg-accent-yellow/10' : 'text-ink hover:bg-surface-muted'}`}
                 >
                   <Pencil size={16} className="shrink-0 opacity-80" />
                   {editMode ? 'Selesai edit' : 'Edit'}
@@ -121,7 +121,7 @@ export default function SeasonsPage() {
                     setShowForm(true)
                     setFabMenuOpen(false)
                   }}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-display font-semibold text-left text-white/90 hover:bg-white/10 transition-colors border-t border-white/5"
+                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-display font-semibold text-left text-ink hover:bg-surface-muted transition-colors border-t border-surface-border"
                 >
                   <Plus size={16} className="shrink-0 opacity-80" />
                   Tambah
@@ -197,12 +197,12 @@ function SeasonCard({ season, editMode, onUpdate }) {
                 <button onClick={handleRename} disabled={saving} className="text-accent-green hover:text-accent-green/70 shrink-0">
                   <Check size={16} />
                 </button>
-                <button onClick={() => { setRenaming(false); setNewName(season.name) }} className="text-white/40 hover:text-white shrink-0">
+                <button onClick={() => { setRenaming(false); setNewName(season.name) }} className="text-ink-faint hover:text-ink shrink-0">
                   <X size={16} />
                 </button>
               </div>
             ) : (
-              <div className="font-display font-semibold text-base truncate">{season.name}</div>
+              <div className="font-display font-semibold text-base truncate text-ink">{season.name}</div>
             )}
           </div>
 
@@ -210,7 +210,7 @@ function SeasonCard({ season, editMode, onUpdate }) {
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 onClick={() => setRenaming(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-display font-semibold bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition-colors border border-white/10"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-display font-semibold bg-surface-muted hover:bg-surface-border text-ink-muted hover:text-ink transition-colors border border-surface-border"
               >
                 <Pencil size={12} /> Rename
               </button>
@@ -233,18 +233,18 @@ function SeasonCard({ season, editMode, onUpdate }) {
             <Icon size={20} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="font-display font-semibold text-base truncate">{season.name}</div>
+            <div className="font-display font-semibold text-base truncate text-ink">{season.name}</div>
           </div>
-          <ChevronRight size={16} className="text-white/30 shrink-0" />
+          <ChevronRight size={16} className="text-ink-faint shrink-0" />
         </Link>
       )}
 
       {deleteModal && createPortal(
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setDeleteModal(false)}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setDeleteModal(false)}>
           <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
-            <h2 className="font-display font-bold text-lg mb-2">Hapus Kompetisi</h2>
-            <p className="text-white/60 text-sm mb-1">Yakin ingin menghapus <span className="text-white font-semibold">{season.name}</span>?</p>
-            <p className="text-white/40 text-xs mb-5">Semua jadwal, hasil, tim terdaftar, dan klasemen akan ikut terhapus permanen.</p>
+            <h2 className="font-display font-bold text-lg mb-2 text-ink">Hapus Kompetisi</h2>
+            <p className="text-ink-muted text-sm mb-1">Yakin ingin menghapus <span className="text-ink font-semibold">{season.name}</span>?</p>
+            <p className="text-ink-faint text-xs mb-5">Semua jadwal, hasil, tim terdaftar, dan klasemen akan ikut terhapus permanen.</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteModal(false)} className="btn-secondary flex-1 text-sm">Batal</button>
               <button onClick={handleDelete} className="btn-danger flex-1 text-sm">Hapus</button>

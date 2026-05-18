@@ -38,7 +38,7 @@ export default function TeamsPage() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="section-title">Tim</h1>
-        <p className="text-white/50 text-sm mt-1">{teams.length} tim terdaftar</p>
+        <p className="text-ink-muted text-sm mt-1">{teams.length} tim terdaftar</p>
       </div>
 
       {loading ? (
@@ -46,23 +46,23 @@ export default function TeamsPage() {
       ) : (
         <div className="card overflow-hidden">
           {teams.length === 0 ? (
-            <div className="p-10 text-center text-white/30">
+            <div className="p-10 text-center text-ink-faint">
               <Users size={36} className="mx-auto mb-3 opacity-30" />
               <p className="text-sm">Belum ada tim terdaftar</p>
             </div>
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-surface-border">
               {teams.map((team, i) => (
                 <div key={team.id} className="flex items-center gap-4 px-5 py-3.5 table-row-hover">
-                  <span className="w-6 text-center text-white/30 font-mono text-xs">{i + 1}</span>
-                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-sm font-bold font-display text-brand-400 overflow-hidden shrink-0">
+                  <span className="w-6 text-center text-ink-faint font-mono text-xs">{i + 1}</span>
+                  <div className="w-9 h-9 rounded-xl bg-brand-50 border border-brand-100 flex items-center justify-center text-sm font-bold font-display text-brand-600 overflow-hidden shrink-0">
                     {team.owner?.avatar_url
                       ? <img src={team.owner.avatar_url} alt={team.name} className="w-full h-full object-cover" />
                       : team.name[0].toUpperCase()}
                   </div>
                   <Link to={`/teams/${team.id}`} className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-display font-semibold text-sm">{team.name}</span>
+                      <span className="font-display font-semibold text-sm text-ink">{team.name}</span>
                       {team.owner?.whatsapp && (
                         <a href={`https://kirimwa.id/${team.owner.whatsapp.replace(/\D/g, '')}`}
                           target="_blank" rel="noopener noreferrer"
@@ -74,11 +74,11 @@ export default function TeamsPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-white/40">@{team.owner?.username}</span>
+                      <span className="text-xs text-ink-faint">@{team.owner?.username}</span>
                       {team.owner?.efootball_id && (
                         <button
                           onClick={e => { e.preventDefault(); copyId(team.owner.efootball_id) }}
-                          className="flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition-colors"
+                          className="flex items-center gap-1 text-xs text-ink-faint hover:text-ink-muted transition-colors"
                           title="Copy ID eFootball">
                           <span className="font-mono">{team.owner.efootball_id}</span>
                           {copied === team.owner.efootball_id
@@ -89,7 +89,7 @@ export default function TeamsPage() {
                     </div>
                   </Link>
                   <Link to={`/teams/${team.id}`}>
-                    <ChevronRight size={15} className="text-white/30" />
+                    <ChevronRight size={15} className="text-ink-faint" />
                   </Link>
                 </div>
               ))}

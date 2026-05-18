@@ -4,85 +4,52 @@ import { supabase } from '../../lib/supabase'
 import TeamFormModal from './TeamFormModal'
 
 export default function ManageTeamsTab() {
-  const [teams, setTeams] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [teams,        setTeams]        = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [isModalOpen,  setIsModalOpen]  = useState(false)
   const [selectedTeam, setSelectedTeam] = useState(null)
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchTerm,   setSearchTerm]   = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
 
-  useEffect(() => {
-    fetchTeams()
-  }, [])
+  useEffect(() => { fetchTeams() }, [])
 
   async function fetchTeams() {
     setLoading(true)
     const { data, error } = await supabase.from('teams')
       .select('*, owner:profiles!owner_id(username)')
       .order('created_at', { ascending: false })
-
-    if (!error) {
-      setTeams(data || [])
-    }
+    if (!error) setTeams(data || [])
     setLoading(false)
-  }
-
-  function handleEditTeam(team) {
-    setSelectedTeam(team)
-    setIsModalOpen(true)
   }
 
   async function handleDeleteTeam(id) {
     if (!confirm('Yakin ingin menghapus tim ini?')) return
-
     const { error } = await supabase.from('teams').delete().eq('id', id)
-
-    if (!error) {
-      setTeams(teams.filter(t => t.id !== id))
-    } else {
-      alert(`Gagal menghapus: ${error.message}`)
-    }
+    if (!error) setTeams(teams.filter(t => t.id !== id))
+    else alert(`Gagal menghapus: ${error.message}`)
   }
 
-  function handleSave() {
-    fetchTeams()
-  }
-
-  // Filter teams based on search and status
   const filteredTeams = teams.filter(t => {
     const matchesSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = filterStatus === 'all' || t.status === filterStatus
     return matchesSearch && matchesStatus
   })
 
-  const statusColors = {
-    pending: 'badge-yellow',
-    approved: 'badge-green',
-    rejected: 'badge-red'
-  }
-
-  const statusLabels = {
-    pending: 'Menunggu persetujuan',
-    approved: 'Disetujui',
-    rejected: 'Ditolak'
-  }
+  const statusBadge = { pending: 'badge-yellow', approved: 'badge-green', rejected: 'badge-red' }
+  const statusLabel = { pending: 'Menunggu', approved: 'Disetujui', rejected: 'Ditolak' }
 
   return (
     <>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="font-display font-semibold text-base flex items-center gap-2 mb-2">
-              <Users size={16} className="text-accent-yellow" /> Kelola Semua Tim ({teams.length})
-            </h2>
-            <p className="text-xs text-white/40">
-              Pemain mendaftar tim di menu <span className="text-white/60">Tim Saya</span> (langsung menunggu persetujuan). Di sini Anda terima/tolak atau ubah data tim.
-            </p>
-          </div>
+        <div>
+          <h2 className="font-display font-semibold text-base flex items-center gap-2 mb-1" style={{color:'#0f172a'}}>
+            <Users size={16} className="text-accent-yellow" /> Kelola Semua Tim ({teams.length})
+          </h2>
+          <p className="text-xs" style={{color:'#94a3b8'}}>
+            Pemain mendaftar tim di menu <span style={{color:'#64748b'}}>Tim Saya</span>. Di sini Anda bisa ubah data tim.
+          </p>
         </div>
 
-        {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
@@ -94,76 +61,72 @@ export default function ManageTeamsTab() {
           <select
             value={filterStatus}
             onChange={e => setFilterStatus(e.target.value)}
-            className="input sm:w-40 text-sm"
+            className="input sm:w-44 text-sm"
           >
             <option value="all">Semua Status</option>
-            <option value="pending">Menunggu persetujuan</option>
+            <option value="pending">Menunggu</option>
             <option value="approved">Disetujui</option>
             <option value="rejected">Ditolak</option>
           </select>
         </div>
 
-        {/* Teams List */}
         {loading ? (
-          <div className="card p-6 text-center text-white/30 text-sm">Memuat data tim...</div>
+          <div className="card p-6 text-center text-sm" style={{color:'#94a3b8'}}>Memuat data tim...</div>
         ) : filteredTeams.length === 0 ? (
-          <div className="card p-6 text-center text-white/30 text-sm">
-            {teams.length === 0 ? 'Belum ada tim' : 'Tidak ada tim yang cocok dengan filter'}
+          <div className="card p-6 text-center text-sm" style={{color:'#94a3b8'}}>
+            {teams.length === 0 ? 'Belum ada tim' : 'Tidak ada tim yang cocok'}
           </div>
         ) : (
           <div className="card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="px-5 py-3 text-left text-xs font-medium text-white/50 uppercase">Nama Tim</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-white/50 uppercase">Owner</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-white/50 uppercase">Status</th>
-                    <th className="px-5 py-3 text-left text-xs font-medium text-white/50 uppercase">Dibuat</th>
-                    <th className="px-5 py-3 text-right text-xs font-medium text-white/50 uppercase">Aksi</th>
+                  <tr style={{borderBottom:'1px solid #e2e8f0', backgroundColor:'#f8fafc'}}>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{color:'#64748b'}}>Nama Tim</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{color:'#64748b'}}>Owner</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{color:'#64748b'}}>Status</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide" style={{color:'#64748b'}}>Dibuat</th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide" style={{color:'#64748b'}}>Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y" style={{borderColor:'#e2e8f0'}}>
                   {filteredTeams.map(team => (
-                    <tr key={team.id} className="hover:bg-white/5 transition-colors">
+                    <tr key={team.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-xs font-bold font-display text-brand-400">
+                          <div className="w-8 h-8 rounded-lg bg-brand-100 flex items-center justify-center text-xs font-bold font-display text-brand-600">
                             {team.name[0]}
                           </div>
-                          <div>
-                            <div className="font-medium text-sm">{team.name}</div>
-                            {team.logo_url && (
-                              <div className="text-xs text-white/40 truncate">Logo: {team.logo_url}</div>
-                            )}
-                          </div>
+                          <div className="font-medium text-sm" style={{color:'#0f172a'}}>{team.name}</div>
                         </div>
                       </td>
                       <td className="px-5 py-3">
-                        <div className="text-sm text-white/70">{team.owner?.username || '-'}</div>
+                        <div className="text-sm" style={{color:'#64748b'}}>{team.owner?.username || '-'}</div>
                       </td>
                       <td className="px-5 py-3">
-                        <span className={`inline-flex text-xs font-medium px-2.5 py-1 rounded-lg ${statusColors[team.status] || 'badge-gray'}`}>
-                          {statusLabels[team.status] ?? team.status}
+                        <span className={statusBadge[team.status] || 'badge-gray'}>
+                          {statusLabel[team.status] ?? team.status}
                         </span>
                       </td>
                       <td className="px-5 py-3">
-                        <div className="text-sm text-white/50">
+                        <div className="text-sm" style={{color:'#94a3b8'}}>
                           {new Date(team.created_at).toLocaleDateString('id-ID')}
                         </div>
                       </td>
                       <td className="px-5 py-3">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => handleEditTeam(team)}
-                            className="p-1.5 text-white/40 hover:text-accent-blue hover:bg-accent-blue/10 rounded-lg transition-colors"
+                            onClick={() => { setSelectedTeam(team); setIsModalOpen(true) }}
+                            className="p-1.5 rounded-lg transition-colors hover:bg-brand-50 hover:text-brand-600"
+                            style={{color:'#94a3b8'}}
                             title="Edit"
                           >
                             <Edit2 size={16} />
                           </button>
                           <button
                             onClick={() => handleDeleteTeam(team.id)}
-                            className="p-1.5 text-white/40 hover:text-accent-red hover:bg-accent-red/10 rounded-lg transition-colors"
+                            className="p-1.5 rounded-lg transition-colors hover:bg-red-50 hover:text-accent-red"
+                            style={{color:'#94a3b8'}}
                             title="Hapus"
                           >
                             <Trash2 size={16} />
@@ -183,7 +146,7 @@ export default function ManageTeamsTab() {
         isOpen={isModalOpen}
         team={selectedTeam}
         onClose={() => setIsModalOpen(false)}
-        onSave={handleSave}
+        onSave={fetchTeams}
       />
     </>
   )

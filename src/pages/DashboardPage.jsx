@@ -77,9 +77,9 @@ export default function DashboardPage() {
   ]
 
   const colorMap = {
-    brand:  'bg-brand-500/20 text-brand-400',
-    green:  'bg-accent-green/20 text-accent-green',
-    yellow: 'bg-accent-yellow/20 text-accent-yellow',
+    brand:  'bg-brand-100 text-brand-600',
+    green:  'bg-accent-green/10 text-accent-green',
+    yellow: 'bg-accent-yellow/10 text-accent-yellow',
   }
 
   if (loading) return <LoadingSkeleton />
@@ -88,30 +88,32 @@ export default function DashboardPage() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="section-title">Dashboard</h1>
-        <p className="text-white/50 text-sm mt-1">
-          Selamat datang, <span className="text-brand-400">{profile?.username}</span> 👋
+        <p className="text-ink-muted text-sm mt-1">
+          Selamat datang, <span className="text-brand-600 font-semibold">{profile?.username}</span> 👋
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="flex gap-3">
         {cards.map(({ label, value, icon: Icon, color, to }) => (
-          <Link key={label} to={to} className="stat-card hover:border-white/20 transition-colors cursor-pointer">
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${colorMap[color]}`}>
-              <Icon size={18} />
+          <Link key={label} to={to} className="stat-card hover:border-white/20 transition-colors cursor-pointer flex items-start gap-3 px-4 py-3 flex-1 text-justify">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${colorMap[color]}`}>
+              <Icon size={16} />
             </div>
-            <div className="text-2xl font-display font-bold mt-2">{value}</div>
-            <div className="text-xs text-white/50">{label}</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-lg font-display font-bold text-ink">{value}</div>
+              <div className="text-xs text-ink-muted">{label}</div>
+            </div>
           </Link>
         ))}
       </div>
 
       {myTeamId && (
         <div className="space-y-3">
-          <h2 className="font-display font-semibold text-lg flex items-center gap-2">
-            <Swords size={18} className="text-brand-400" /> Jadwal Tim Saya
+          <h2 className="font-display font-semibold text-lg flex items-center gap-2 text-ink">
+            <Swords size={18} className="text-brand-600" /> Jadwal Tim Saya
           </h2>
           {myMatches.length === 0 ? (
-            <div className="card p-8 text-center text-white/30 text-sm">Belum ada jadwal</div>
+            <div className="card p-8 text-center text-ink-faint text-sm">Belum ada jadwal</div>
           ) : (
             <SeasonSlider matches={myMatches} myTeamId={myTeamId} canInput={canInput} onScoreClick={setScoreModal} onImgClick={setImgModal} />
           )}
@@ -172,7 +174,7 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick })
             )}
           </div>
           <div
-            className={`font-display font-bold text-sm bg-pitch-dark rounded-lg px-2 py-1 w-12 text-center shrink-0 ${m.screenshot_url ? 'cursor-pointer hover:bg-white/10' : ''}`}
+            className={`font-display font-bold text-sm bg-surface-muted rounded-lg px-2 py-1 w-12 text-center shrink-0 border border-surface-border ${m.screenshot_url ? 'cursor-pointer hover:bg-surface-border' : ''}`}
             onClick={() => m.screenshot_url && onImgClick(m.screenshot_url)}
           >
             {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
@@ -210,10 +212,10 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick })
         <>
           {groups.map(g => (
             <div key={g} className="card overflow-hidden">
-              <div className="px-5 py-2.5 border-b border-white/10 bg-pitch-dark/50">
+              <div className="px-5 py-2.5 border-b border-surface-border bg-surface-muted">
                 <span className="font-display font-semibold text-sm text-accent-purple">Grup {g}</span>
               </div>
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-surface-border">
                 {groupMatches.filter(m => m.group_id === g).map(renderMatchRow)}
               </div>
             </div>
@@ -223,17 +225,17 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick })
             if (roundMatches.length === 0) return null
             return (
               <div key={ko.key} className="card overflow-hidden">
-                <div className="px-5 py-2.5 border-b border-white/10 bg-pitch-dark/50">
+                <div className="px-5 py-2.5 border-b border-surface-border bg-surface-muted">
                   <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
                 </div>
-                <div className="divide-y divide-white/5">
+                <div className="divide-y divide-surface-border">
                   {roundMatches.map(renderMatchRow)}
                 </div>
               </div>
             )
           })}
           {groups.length === 0 && koMatches.length === 0 && (
-            <div className="card p-6 text-center text-white/30 text-sm">Belum ada jadwal</div>
+            <div className="card p-6 text-center text-ink-faint text-sm">Belum ada jadwal</div>
           )}
         </>
       )
@@ -248,10 +250,10 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick })
         if (roundMatches.length === 0) return null
         return (
           <div key={ko.key} className="card overflow-hidden">
-            <div className="px-5 py-2.5 border-b border-white/10 bg-pitch-dark/50">
+            <div className="px-5 py-2.5 border-b border-surface-border bg-surface-muted">
               <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
             </div>
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-surface-border">
               {roundMatches.map(renderMatchRow)}
             </div>
           </div>
@@ -261,10 +263,10 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick })
 
     return rounds.map(r => (
       <div key={r} className="card overflow-hidden">
-        <div className="px-5 py-2.5 border-b border-white/10 bg-pitch-dark/50">
-          <span className="font-display font-semibold text-sm text-brand-400">Pekan {r}</span>
+        <div className="px-5 py-2.5 border-b border-surface-border bg-surface-muted">
+          <span className="font-display font-semibold text-sm text-brand-600">Pekan {r}</span>
         </div>
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-surface-border">
           {sMatches.filter(m => m.round === r).map(renderMatchRow)}
         </div>
       </div>
@@ -279,16 +281,16 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick })
           <button
             onClick={() => setIdx(i => Math.max(0, i - 1))}
             disabled={idx === 0}
-            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-lg"
+            className="w-8 h-8 rounded-lg bg-surface-muted hover:bg-surface-border disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-lg text-ink"
           >‹</button>
-          <span className="font-display font-semibold text-sm text-brand-400 truncate">{name}</span>
+          <span className="font-display font-semibold text-sm text-brand-600 truncate">{name}</span>
           <button
             onClick={() => setIdx(i => Math.min(seasons.length - 1, i + 1))}
             disabled={idx === seasons.length - 1}
-            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-lg"
+            className="w-8 h-8 rounded-lg bg-surface-muted hover:bg-surface-border disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-lg text-ink"
           >›</button>
         </div>
-        <span className="text-xs text-white/30 shrink-0">{idx + 1} / {seasons.length}</span>
+        <span className="text-xs text-ink-faint shrink-0">{idx + 1} / {seasons.length}</span>
       </div>
 
       {renderContent()}
@@ -357,34 +359,34 @@ function ScoreModal({ match, onClose, onSaved }) {
   }
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
-        <h2 className="font-display font-bold text-lg mb-1">Input Skor</h2>
-        <p className="text-white/40 text-xs mb-4">Skor akan menunggu persetujuan admin.</p>
+        <h2 className="font-display font-bold text-lg mb-1 text-ink">Input Skor</h2>
+        <p className="text-ink-faint text-xs mb-4">Skor akan menunggu persetujuan admin.</p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex items-center gap-3">
             <div className="flex-1 text-center">
-              <div className="text-xs text-white/50 mb-1.5 truncate">{match.home_team?.name}</div>
+              <div className="text-xs text-ink-faint mb-1.5 truncate">{match.home_team?.name}</div>
               <input type="number" min="0" required value={homeScore} onChange={e => setHomeScore(e.target.value)}
                 className="input text-center text-2xl font-display font-bold w-full" placeholder="0" />
             </div>
-            <span className="text-white/30 font-display font-bold text-xl mt-5">–</span>
+            <span className="text-ink-faint font-display font-bold text-xl mt-5">–</span>
             <div className="flex-1 text-center">
-              <div className="text-xs text-white/50 mb-1.5 truncate">{match.away_team?.name}</div>
+              <div className="text-xs text-ink-faint mb-1.5 truncate">{match.away_team?.name}</div>
               <input type="number" min="0" required value={awayScore} onChange={e => setAwayScore(e.target.value)}
                 className="input text-center text-2xl font-display font-bold w-full" placeholder="0" />
             </div>
           </div>
 
           <div>
-            <label className="text-sm text-white/60 mb-1.5 block">Bukti Screenshot</label>
+            <label className="text-sm text-ink-muted mb-1.5 block">Bukti Screenshot</label>
             <div
               onClick={() => fileRef.current.click()}
-              className="w-full h-28 rounded-xl border-2 border-dashed border-white/15 hover:border-brand-500/50 transition-colors cursor-pointer overflow-hidden flex items-center justify-center bg-white/5"
+              className="w-full h-28 rounded-xl border-2 border-dashed border-surface-border hover:border-brand-400 transition-colors cursor-pointer overflow-hidden flex items-center justify-center bg-surface-muted"
             >
               {preview
                 ? <img src={preview} alt="screenshot" className="w-full h-full object-cover" />
-                : <span className="text-xs text-white/30">Klik untuk upload gambar</span>}
+                : <span className="text-xs text-ink-faint">Klik untuk upload gambar</span>}
             </div>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
           </div>
@@ -408,10 +410,10 @@ function LoadingSkeleton() {
       <div className="h-8 w-48 bg-white/10 rounded animate-pulse" />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="card p-5 h-24 animate-pulse bg-white/5" />
+          <div key={i} className="card p-5 h-24 animate-pulse bg-surface-muted" />
         ))}
       </div>
-      <div className="card h-48 animate-pulse bg-white/5" />
+      <div className="card h-48 animate-pulse bg-surface-muted" />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { Save, Lock, User, Shield, X, Phone, Gamepad2 } from 'lucide-react'
+import { Save, Lock, User, Shield, X, Phone, Gamepad2, LogOut } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 
@@ -21,24 +22,105 @@ function compressImage(file, maxSize = 256, quality = 0.8) {
 }
 
 export default function ProfilePage() {
-  const { user, profile, fetchProfile } = useAuth()
-  const [username,     setUsername]     = useState(profile?.username || '')
-  const [whatsapp,     setWhatsapp]     = useState(profile?.whatsapp || '')
-  const [efootballId,  setEfootballId]  = useState(profile?.efootball_id || '')
-  const [preview,    setPreview]    = useState(profile?.avatar_url || null)
-  const [file,       setFile]       = useState(null)
-  const [team,       setTeam]       = useState(null)
-  const [teamName,   setTeamName]   = useState('')
-  const [saving,     setSaving]     = useState(false)
-  const [msg,        setMsg]        = useState('')
+  const { user, profile, fetchProfile, signOut } = useAuth()
+  const navigate = useNavigate()
+  const [team, setTeam] = useState(null)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [showPwModal, setShowPwModal] = useState(false)
-  const fileRef = useRef()
 
   useEffect(() => {
     if (!user?.id) return
     supabase.from('teams').select('*').eq('owner_id', user.id).maybeSingle()
-      .then(({ data }) => { setTeam(data); setTeamName(data?.name || '') })
+      .then(({ data }) => { setTeam(data) })
   }, [user?.id])
+
+  async function handleSignOut() {
+    await signOut()
+    navigate('/login')
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in max-w-lg">
+      <h1 className="section-title">Profil Saya</h1>
+
+      <div className="card p-6 space-y-5">
+        {/* Avatar */}
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-20 h-20 rounded-full bg-brand-50 border-2 border-brand-200 flex items-center justify-center overflow-hidden">
+            {profile?.avatar_url
+              ? <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+              : <span className="text-2xl font-display font-bold text-brand-600">{profile?.username?.[0]?.toUpperCase() ?? '?'}</span>}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm text-ink-muted mb-1.5 block flex items-center gap-1.5">
+              <User size={13} /> Username
+            </label>
+            <p className="font-display font-semibold text-ink">{profile?.username || '-'}</p>
+          </div>
+
+          <div>
+            <label className="text-sm text-ink-muted mb-1.5 block flex items-center gap-1.5">
+              <Phone size={13} /> No. WhatsApp
+            </label>
+            <p className="font-display font-semibold text-ink">{profile?.whatsapp || '-'}</p>
+          </div>
+
+          <div>
+            <label className="text-sm text-ink-muted mb-1.5 block flex items-center gap-1.5">
+              <Gamepad2 size={13} /> ID eFootball
+            </label>
+            <p className="font-display font-semibold text-ink">{profile?.efootball_id || '-'}</p>
+          </div>
+
+          {team && (
+            <div>
+              <label className="text-sm text-ink-muted mb-1.5 block flex items-center gap-1.5">
+                <Shield size={13} /> Nama Tim
+              </label>
+              <p className="font-display font-semibold text-ink">{team.name || '-'}</p>
+            </div>
+          )}
+        </div>
+
+        <button onClick={() => setShowEditModal(true)} className="btn-primary w-full flex items-center justify-center gap-2 text-sm">
+          <Save size={15} /> Edit Profil
+        </button>
+
+        <div className="border-t border-surface-border pt-4 space-y-2">
+          <button onClick={() => setShowPwModal(true)} className="btn-secondary w-full flex items-center justify-center gap-2 text-sm">
+            <Lock size={15} /> Ganti Password
+          </button>
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center gap-2 text-sm font-display font-semibold px-6 py-2.5 rounded-lg transition-all duration-200 border"
+            style={{ color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.06)', borderColor: 'rgba(239,68,68,0.2)' }}
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.12)'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.06)'}
+          >
+            <LogOut size={15} /> Keluar
+          </button>
+        </div>
+      </div>
+
+      {showEditModal && <EditProfileModal onClose={() => setShowEditModal(false)} profile={profile} user={user} team={team} fetchProfile={fetchProfile} />}
+      {showPwModal && <PasswordModal onClose={() => setShowPwModal(false)} />}
+    </div>
+  )
+}
+
+function EditProfileModal({ onClose, profile, user, team, fetchProfile }) {
+  const [username,     setUsername]     = useState(profile?.username || '')
+  const [whatsapp,     setWhatsapp]     = useState(profile?.whatsapp || '')
+  const [efootballId,  setEfootballId]  = useState(profile?.efootball_id || '')
+  const [preview,      setPreview]      = useState(profile?.avatar_url || null)
+  const [file,         setFile]         = useState(null)
+  const [teamName,     setTeamName]     = useState(team?.name || '')
+  const [saving,       setSaving]       = useState(false)
+  const [msg,          setMsg]          = useState('')
+  const fileRef = useRef()
 
   function handleFileChange(e) {
     const f = e.target.files[0]
@@ -86,43 +168,44 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-lg">
-      <h1 className="section-title">Profil Saya</h1>
-
-      <div className="card p-6 space-y-5">
-        {/* Avatar */}
-        <div className="flex flex-col items-center gap-2">
-          <div
-            className="w-20 h-20 rounded-full bg-brand-600/20 border-2 border-dashed border-brand-500/40 flex items-center justify-center overflow-hidden cursor-pointer hover:border-brand-400 transition-colors"
-            onClick={() => fileRef.current.click()}
-          >
-            {preview
-              ? <img src={preview} alt="avatar" className="w-full h-full object-cover" />
-              : <span className="text-2xl font-display font-bold text-brand-400">{profile?.username?.[0]?.toUpperCase() ?? '?'}</span>}
-          </div>
-          <button type="button" onClick={() => fileRef.current.click()} className="text-xs text-white/40 hover:text-white/70 transition-colors">
-            {preview ? 'Ganti foto' : 'Upload foto'}
-          </button>
-          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display font-bold text-lg text-ink">Edit Profil</h2>
+          <button onClick={onClose} className="text-ink-faint hover:text-ink transition-colors"><X size={18} /></button>
         </div>
-
         <form onSubmit={handleSave} className="space-y-4">
+          <div className="flex flex-col items-center gap-2">
+            <div
+              className="w-20 h-20 rounded-full bg-brand-50 border-2 border-dashed border-brand-300 flex items-center justify-center overflow-hidden cursor-pointer hover:border-brand-500 transition-colors"
+              onClick={() => fileRef.current.click()}
+            >
+              {preview
+                ? <img src={preview} alt="avatar" className="w-full h-full object-cover" />
+                : <span className="text-2xl font-display font-bold text-brand-600">{profile?.username?.[0]?.toUpperCase() ?? '?'}</span>}
+            </div>
+            <button type="button" onClick={() => fileRef.current.click()} className="text-xs text-ink-faint hover:text-ink-muted transition-colors">
+              {preview ? 'Ganti foto' : 'Upload foto'}
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          </div>
+
           <div>
-            <label className="text-sm text-white/60 mb-1.5 block flex items-center gap-1.5">
+            <label className="text-sm text-ink-muted mb-1.5 block flex items-center gap-1.5">
               <User size={13} /> Username
             </label>
             <input value={username} onChange={e => setUsername(e.target.value)} className="input" required />
           </div>
 
           <div>
-            <label className="text-sm text-white/60 mb-1.5 block flex items-center gap-1.5">
+            <label className="text-sm text-ink-muted mb-1.5 block flex items-center gap-1.5">
               <Phone size={13} /> No. WhatsApp
             </label>
             <input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className="input" placeholder="628xxxxxxxxxx" />
           </div>
 
           <div>
-            <label className="text-sm text-white/60 mb-1.5 block flex items-center gap-1.5">
+            <label className="text-sm text-ink-muted mb-1.5 block flex items-center gap-1.5">
               <Gamepad2 size={13} /> ID eFootball
             </label>
             <input value={efootballId} onChange={e => setEfootballId(e.target.value)} className="input" placeholder="ID eFootball kamu" />
@@ -130,7 +213,7 @@ export default function ProfilePage() {
 
           {team && (
             <div>
-              <label className="text-sm text-white/60 mb-1.5 block flex items-center gap-1.5">
+              <label className="text-sm text-ink-muted mb-1.5 block flex items-center gap-1.5">
                 <Shield size={13} /> Nama Tim
               </label>
               <input value={teamName} onChange={e => setTeamName(e.target.value)} className="input" required />
@@ -139,19 +222,14 @@ export default function ProfilePage() {
 
           {msg && <p className={`text-xs ${msg.includes('Berhasil') ? 'text-accent-green' : 'text-accent-red'}`}>{msg}</p>}
 
-          <button type="submit" disabled={saving} className="btn-primary w-full flex items-center justify-center gap-2 text-sm">
-            <Save size={15} /> {saving ? 'Menyimpan...' : 'Simpan'}
-          </button>
+          <div className="flex gap-3">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
+            <button type="submit" disabled={saving} className="btn-primary flex-1 text-sm">
+              {saving ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </div>
         </form>
-
-        <div className="border-t border-white/10 pt-4">
-          <button onClick={() => setShowPwModal(true)} className="btn-secondary w-full flex items-center justify-center gap-2 text-sm">
-            <Lock size={15} /> Ganti Password
-          </button>
-        </div>
       </div>
-
-      {showPwModal && <PasswordModal onClose={() => setShowPwModal(false)} />}
     </div>
   )
 }
@@ -172,15 +250,15 @@ function PasswordModal({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-lg">Ganti Password</h2>
-          <button onClick={onClose} className="text-white/40 hover:text-white/80 transition-colors"><X size={18} /></button>
+          <h2 className="font-display font-bold text-lg text-ink">Ganti Password</h2>
+          <button onClick={onClose} className="text-ink-faint hover:text-ink transition-colors"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm text-white/60 mb-1.5 block">Password baru</label>
+            <label className="text-sm text-ink-muted mb-1.5 block">Password baru</label>
             <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="input" required minLength={6} placeholder="Minimal 6 karakter" />
           </div>
           {msg && <p className={`text-xs ${msg.includes('berhasil') ? 'text-accent-green' : 'text-accent-red'}`}>{msg}</p>}

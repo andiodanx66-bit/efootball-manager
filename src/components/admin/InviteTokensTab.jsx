@@ -26,10 +26,7 @@ export default function InviteTokensTab() {
 
   async function createToken() {
     const token = generateToken()
-    const { error } = await supabase.from('invite_tokens').insert({
-      token,
-      label: label.trim() || null
-    })
+    const { error } = await supabase.from('invite_tokens').insert({ token, label: label.trim() || null })
     if (error) alert(error.message)
     else { setLabel(''); fetchTokens() }
   }
@@ -50,7 +47,7 @@ export default function InviteTokensTab() {
     <div className="space-y-5">
       <div className="flex items-center gap-2">
         <Key size={16} className="text-accent-purple" />
-        <h2 className="font-display font-semibold text-base">Token Undangan</h2>
+        <h2 className="font-display font-semibold text-base" style={{color:'#0f172a'}}>Token Undangan</h2>
       </div>
 
       {/* Buat token baru */}
@@ -68,31 +65,50 @@ export default function InviteTokensTab() {
 
       {/* List token */}
       {loading ? (
-        <div className="card p-6 text-center text-white/30 text-sm">Memuat...</div>
+        <div className="card p-6 text-center text-sm" style={{color:'#94a3b8'}}>Memuat...</div>
       ) : tokens.length === 0 ? (
-        <div className="card p-6 text-center text-white/30 text-sm">Belum ada token</div>
+        <div className="card p-6 text-center text-sm" style={{color:'#94a3b8'}}>Belum ada token</div>
       ) : (
-        <div className="card overflow-hidden divide-y divide-white/5">
+        <div className="card overflow-hidden divide-y" style={{borderColor:'#e2e8f0'}}>
           {tokens.map(t => (
-            <div key={t.id} className="flex items-center gap-4 px-5 py-3">
+            <div key={t.id} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 transition-colors">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-bold tracking-widest text-brand-300">{t.token}</span>
-                  {t.used && <span className="badge-gray text-xs">Terpakai</span>}
-                  {!t.used && <span className="badge-green text-xs">Aktif</span>}
+                  <span className="font-mono text-sm font-bold tracking-widest text-brand-600">{t.token}</span>
+                  {t.used
+                    ? <span className="badge-gray text-xs">Terpakai</span>
+                    : <span className="badge-green text-xs">Aktif</span>}
                 </div>
-                {t.label && <div className="text-xs text-white/40 mt-0.5">{t.label}</div>}
+                {t.label && (
+                  <div className="text-xs mt-0.5" style={{color:'#94a3b8'}}>{t.label}</div>
+                )}
                 {t.used && t.used_by_profile && (
-                  <div className="text-xs text-white/30 mt-0.5">Dipakai oleh: @{t.used_by_profile.username}</div>
+                  <div className="text-xs mt-0.5" style={{color:'#94a3b8'}}>
+                    Dipakai oleh: @{t.used_by_profile.username}
+                  </div>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {!t.used && (
-                  <button onClick={() => copyToken(t.token)} className="p-1.5 text-white/40 hover:text-accent-blue hover:bg-accent-blue/10 rounded-lg transition-colors" title="Salin">
-                    {copied === t.token ? <Check size={15} className="text-accent-green" /> : <Copy size={15} />}
+                  <button
+                    onClick={() => copyToken(t.token)}
+                    className="p-1.5 rounded-lg transition-colors hover:bg-brand-50"
+                    style={{color:'#94a3b8'}}
+                    title="Salin"
+                  >
+                    {copied === t.token
+                      ? <Check size={15} className="text-accent-green" />
+                      : <Copy size={15} />}
                   </button>
                 )}
-                <button onClick={() => deleteToken(t.id)} className="p-1.5 text-white/40 hover:text-accent-red hover:bg-accent-red/10 rounded-lg transition-colors" title="Hapus">
+                <button
+                  onClick={() => deleteToken(t.id)}
+                  className="p-1.5 rounded-lg transition-colors hover:bg-red-50"
+                  style={{color:'#94a3b8'}}
+                  title="Hapus"
+                  onMouseEnter={e => e.currentTarget.style.color='#ef4444'}
+                  onMouseLeave={e => e.currentTarget.style.color='#94a3b8'}
+                >
                   <Trash2 size={15} />
                 </button>
               </div>
