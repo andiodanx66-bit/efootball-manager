@@ -43,7 +43,10 @@ create table if not exists seasons (
   start_date  date,
   end_date    date,
   created_by  uuid references profiles(id),
-  created_at  timestamptz default now()
+  created_at  timestamptz default now(),
+  num_divisions int default 1,
+  promotion_count int default 0,
+  relegation_count int default 0
 );
 alter table seasons enable row level security;
 create policy "Seasons readable by all" on seasons for select using (true);
@@ -90,6 +93,7 @@ create table if not exists season_teams (
   season_id uuid references seasons(id) on delete cascade,
   team_id   uuid references teams(id) on delete cascade,
   group_id  text, -- for group stage (A, B, C, D)
+  division  int default 1, -- 1 = tertinggi, 2, 3
   unique(season_id, team_id)
 );
 alter table season_teams enable row level security;
@@ -168,8 +172,8 @@ with match_data as (
          when away_score = home_score  then 1
          else 0 end as pts,
     case when away_score > home_score  then 1 else 0 end as won,
-    case when away_score = home_score  then 1 else 0 end as drawn,
-    case when away_score < home_score  then 1 else 0 end as lost
+    case when away_score < home_score  then 1 else 0 end as lost,
+    case when away_score > home_score  then 1 else 0 end as drawn
   from matches where status = 'approved' and away_score is not null
 )
 select
@@ -178,6 +182,7 @@ select
   t.name        as team_name,
   t.logo_url,
   st.group_id,
+  st.division,
   count(*)      as played,
   sum(won)      as won,
   sum(drawn)    as drawn,
@@ -189,8 +194,8 @@ select
 from match_data md
 join teams t on t.id = md.team_id
 left join season_teams st on st.team_id = md.team_id and st.season_id = md.season_id
-group by md.season_id, md.team_id, t.name, t.logo_url, st.group_id
-order by sum(pts) desc, (sum(gf)-sum(ga)) desc, sum(gf) desc;
+group by md.season_id, md.team_id, t.name, t.logo_url, st.group_id, st.division
+order by st.division asc, sum(pts) desc, (sum(gf)-sum(ga)) desc, sum(gf) desc;
 
 -- TOP SCORERS VIEW
 create or replace view top_scorers as
