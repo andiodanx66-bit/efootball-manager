@@ -108,7 +108,7 @@ export default function SeasonDetail() {
       supabase.from('seasons').select('*').eq('id', id).single(),
       supabase.from('season_teams').select('*, team:teams(id,name,owner:profiles!owner_id(avatar_url))').eq('season_id', id).order('division'),
       supabase.from('matches')
-        .select('*, home_team:teams!home_team_id(id,name,owner:profiles!owner_id(whatsapp)), away_team:teams!away_team_id(id,name,owner:profiles!owner_id(whatsapp))')
+        .select('*, home_team:teams!home_team_id(id,name,owner:profiles!owner_id(whatsapp,avatar_url)), away_team:teams!away_team_id(id,name,owner:profiles!owner_id(whatsapp,avatar_url))')
         .eq('season_id', id)
         .order('round').order('match_date')
     ])
@@ -408,44 +408,12 @@ export default function SeasonDetail() {
       {/* Tab content */}
       {tab === 'matches' && (
         <div className="space-y-6">
-          {/* Hasil Terbaru Section */}
-          {matches.filter(m => m.status === 'approved').length > 0 && (
-            <div className="space-y-3">
-              <h2 className="font-display font-semibold text-sm flex items-center gap-2 px-1 uppercase tracking-wider text-slate-400">
-                <Trophy size={14} className="text-brand-500" /> ringkasan pertandingan
-              </h2>
-              <div className="card overflow-hidden divide-y divide-slate-100 max-h-[calc(5*56px)] overflow-y-auto custom-scrollbar">
-                {matches
-                  .filter(m => m.status === 'approved')
-                  .sort((a, b) => {
-                    const dateA = a.approved_at ? new Date(a.approved_at).getTime() : 0
-                    const dateB = b.approved_at ? new Date(b.approved_at).getTime() : 0
-                    return dateB - dateA
-                  })
-                  .map(m => (
-                    <div key={m.id} className="flex flex-wrap items-center px-4 py-3 gap-x-2 gap-y-1.5 table-row-hover">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-sm font-medium truncate max-w-[80px]">{m.home_team?.name}</span>
-                        <div
-                          className={`font-display font-bold text-sm rounded-lg px-2 py-1 w-12 text-center shrink-0 border ${m.screenshot_url ? "cursor-pointer hover:bg-slate-100" : ""}`} style={{backgroundColor:"#f1f5f9",borderColor:"#e2e8f0"}}
-                          onClick={() => m.screenshot_url && setImgModal(m.screenshot_url)}
-                        >
-                          {m.home_score}–{m.away_score}
-                        </div>
-                        <span className="text-sm font-medium truncate max-w-[80px]">{m.away_team?.name}</span>
-                      </div>
-                      <div className="text-[10px] text-slate-300 font-mono uppercase tracking-tighter shrink-0 flex flex-col items-end">
-                        <span>{m.stage === 'league' ? `Pekan ${m.round}` : m.stage}</span>
-                        {m.approved_at && (
-                          <span>{new Date(m.approved_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
+          {/* Info helper */}
+          {matches.length > 0 && (
+            <p className="text-xs" style={{color:'#94a3b8'}}>
+              Klik papan skor untuk input hasil, klik nama tim untuk chat
+            </p>
           )}
-
           {/* Kelompokkan berdasarkan divisi jika multi-divisi */}
           {(() => {
             const numDiv = (season.num_divisions || 1)
@@ -699,56 +667,79 @@ function MatchList({ matches, isAdmin, myTeamId, onUpdate, season }) {
     onUpdate()
   }
 
+  function showScoreBtn(m) {
+    if (m.status === 'approved') return false
+    if (isAdmin) return true
+    return myTeamId && (m.home_team_id === myTeamId || m.away_team_id === myTeamId)
+  }
+
   return (
     <>
       <div className="divide-y divide-slate-100">
         {matches.map(m => {
-          const isHome   = myTeamId === m.home_team_id
-          const isAway   = myTeamId === m.away_team_id
-          const homeWa   = !isHome ? m.home_team?.owner?.whatsapp : null
-          const awayWa   = !isAway ? m.away_team?.owner?.whatsapp : null
+          const homeWa   = m.home_team?.owner?.whatsapp
+          const awayWa   = m.away_team?.owner?.whatsapp
+          const homeWaLink = homeWa ? `https://kirimwa.id/${homeWa.replace(/\D/g, '')}` : null
+          const awayWaLink = awayWa ? `https://kirimwa.id/${awayWa.replace(/\D/g, '')}` : null
+          const canClick = showScoreBtn(m) || isAdmin
           return (
-          <div key={m.id} className="flex flex-wrap items-center px-4 py-3 gap-x-2 gap-y-1.5 table-row-hover">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="text-sm font-medium truncate max-w-[80px]">{m.home_team?.name}</span>
-                {homeWa && (
-                  <a href={`https://kirimwa.id/${homeWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-                    className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0" title="Chat WhatsApp">
-                    <WaIcon />
-                  </a>
-                )}
-              </div>
-              <div
-                className={`font-display font-bold text-sm rounded-lg px-2 py-1 w-12 text-center shrink-0 border ${m.screenshot_url ? "cursor-pointer hover:bg-slate-100" : ""}`} style={{backgroundColor:"#f1f5f9",borderColor:"#e2e8f0"}}
-                onClick={() => m.screenshot_url && setImgModal(m.screenshot_url)}
-              >
-                {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
-              </div>
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="text-sm font-medium truncate max-w-[80px]">{m.away_team?.name}</span>
-                {awayWa && (
-                  <a href={`https://kirimwa.id/${awayWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-                    className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0" title="Chat WhatsApp">
-                    <WaIcon />
-                  </a>
-                )}
+          <div key={m.id}
+            onClick={() => canClick && setScoreModal(m)}
+            className={`relative flex items-center justify-center px-4 py-3 gap-x-3 gap-y-1.5 ${canClick ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
+            {/* Home team */}
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+              {homeWaLink ? (
+                <a href={homeWaLink} target="_blank" rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="text-sm font-medium truncate max-w-[90px] text-right hover:text-accent-green underline underline-offset-2 transition-colors">
+                  {m.home_team?.name}
+                </a>
+              ) : (
+                <span className="text-sm font-medium truncate max-w-[90px] text-right">{m.home_team?.name}</span>
+              )}
+              <div className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-xs font-bold font-display text-brand-600 overflow-hidden shrink-0">
+                {m.home_team?.owner?.avatar_url
+                  ? <img src={m.home_team.owner.avatar_url} alt="" className="w-full h-full object-cover" />
+                  : (m.home_team?.name || '?')[0]}
               </div>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              {showInputBtn(m) && (
-                <button onClick={() => setScoreModal(m)} className="badge-blue cursor-pointer hover:bg-brand-500/30 transition-colors p-1.5 flex items-center">
-                  <Pencil size={13} />
-                </button>
+
+            {/* Score */}
+            <div
+              className={`font-display font-bold text-sm rounded-lg px-2 py-1 w-12 text-center shrink-0 border ${canClick ? 'cursor-pointer hover:bg-slate-100' : ''} ${m.screenshot_url ? 'border-brand-300' : ''}`} style={{backgroundColor:"#f1f5f9",borderColor:"#e2e8f0"}}
+              onClick={e => { if (canClick) { e.stopPropagation(); setScoreModal(m) } else if (m.screenshot_url) { e.stopPropagation(); setImgModal(m.screenshot_url) } }}
+            >
+              {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
+            </div>
+
+            {/* Away team */}
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-start">
+              <div className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-xs font-bold font-display text-brand-600 overflow-hidden shrink-0">
+                {m.away_team?.owner?.avatar_url
+                  ? <img src={m.away_team.owner.avatar_url} alt="" className="w-full h-full object-cover" />
+                  : (m.away_team?.name || '?')[0]}
+              </div>
+              {awayWaLink ? (
+                <a href={awayWaLink} target="_blank" rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="text-sm font-medium truncate max-w-[90px] hover:text-accent-green underline underline-offset-2 transition-colors">
+                  {m.away_team?.name}
+                </a>
+              ) : (
+                <span className="text-sm font-medium truncate max-w-[90px]">{m.away_team?.name}</span>
               )}
+            </div>
+
+            {/* Status badges — absolute positioned, tidak mempengaruhi layout */}
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
               {m.status === 'pending_result' && isAdmin && (
-                <button onClick={() => approveResult(m)} className="badge-green cursor-pointer p-1.5 flex items-center">
-                  <Check size={13} />
+                <button onClick={e => { e.stopPropagation(); approveResult(m) }} className="badge-green cursor-pointer p-1 flex items-center">
+                  <Check size={12} />
                 </button>
               )}
-              {m.status === 'pending_result' && !isAdmin && canInput(m) && <span className="badge-yellow flex items-center gap-1"><Clock size={11} /></span>}
-              {m.status === 'pending_result' && !canInput(m) && <span className="badge-yellow flex items-center gap-1"><Clock size={11} /></span>}
-              {m.status === 'approved' && !isAdmin && <span className="badge-green">✓</span>}
+              {m.status === 'pending_result' && !isAdmin && canInput(m) && <span className="badge-yellow flex items-center gap-1 p-1"><Clock size={10} /></span>}
+              {m.status === 'pending_result' && !canInput(m) && <span className="badge-yellow flex items-center gap-1 p-1"><Clock size={10} /></span>}
+              {m.status === 'approved' && !isAdmin && <span className="badge-green text-xs px-1">✓</span>}
             </div>
           </div>
         )
@@ -999,14 +990,15 @@ function StandingsTable({ rows, promotionCount, relegationCount, isTopDivision, 
   const tRows = rows.map((r, i) => {
     const isPromo = promotionLimit > 0 && i < promotionLimit
     const isRel = relegationLimit > 0 && i >= rows.length - relegationLimit
-    const rowBg = isPromo ? 'bg-accent-green/5' : isRel ? 'bg-accent-red/5' : ''
-    const pos = (isPromo ? '\u2B06 ' : isRel ? '\u2B07 ' : '') + (i + 1)
+    const rowBg = isPromo ? 'bg-emerald-500/20' : isRel ? 'bg-red-500/20' : ''
+    const indicatorColor = isPromo ? '#34d399' : isRel ? '#f87171' : 'transparent'
+    const pos = i + 1
     return (
       <tr key={r.team_id || i} className={'table-row-hover ' + rowBg}>
-        <td className="pl-4 pr-1 py-2.5 text-slate-400 font-mono text-xs text-center">{pos}</td>
+        <td className="pl-4 pr-1 py-2.5 font-mono text-xs text-center" style={{color:'#64748b', borderLeft: `3px solid ${indicatorColor}`}}>{pos}</td>
         <td className="pl-1 pr-2 py-2.5">
           <Link to={`/teams/${r.team_id}`} className="flex items-center gap-2 hover:text-brand-600 transition-colors group">
-            <div className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-xs font-bold font-display text-brand-600 overflow-hidden shrink-0">
+            <div className="w-6 h-6 rounded flex items-center justify-center text-xs font-bold font-display text-brand-600 overflow-hidden shrink-0" style={{backgroundColor:'rgba(255,255,255,0.08)'}}>
               {r.avatar_url
                 ? <img src={r.avatar_url} alt="" className="w-full h-full object-cover" />
                 : (r.team_name || '?')[0]}
@@ -1014,11 +1006,11 @@ function StandingsTable({ rows, promotionCount, relegationCount, isTopDivision, 
             <span className="font-medium group-hover:underline truncate">{r.team_name}</span>
           </Link>
         </td>
-        <td className="py-2.5 text-center text-slate-500">{r.played}</td>
+        <td className="py-2.5 text-center" style={{color:'#94a3b8'}}>{r.played}</td>
         <td className="py-2.5 text-center text-accent-green">{r.won}</td>
-        <td className="py-2.5 text-center text-slate-500">{r.drawn}</td>
+        <td className="py-2.5 text-center" style={{color:'#94a3b8'}}>{r.drawn}</td>
         <td className="py-2.5 text-center text-accent-red">{r.lost}</td>
-        <td className="py-2.5 text-center text-slate-500">{r.gd > 0 ? '+' + r.gd : r.gd}</td>
+        <td className="py-2.5 text-center" style={{color:'#94a3b8'}}>{r.gd > 0 ? '+' + r.gd : r.gd}</td>
         <td className="py-2.5 pr-4 text-center font-display font-bold text-brand-600">{r.pts}</td>
       </tr>
     )
@@ -1031,10 +1023,26 @@ function StandingsTable({ rows, promotionCount, relegationCount, isTopDivision, 
     </tr>
   ) : null
 
-  const legend = null
+  const showLegend = promotionLimit > 0 || relegationLimit > 0
 
   return (
     <div className="overflow-x-auto">
+      {showLegend && (
+        <div className="flex items-center gap-4 px-4 py-2 border-b border-white/10" style={{backgroundColor:'rgba(255,255,255,0.04)'}}>
+          {promotionLimit > 0 && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <div className="w-3 h-3 rounded" style={{backgroundColor:'rgba(52,211,153,0.5)', border:'1.5px solid rgba(52,211,153,0.9)'}} />
+              <span style={{color:'#6ee7b7'}}>Promosi</span>
+            </div>
+          )}
+          {relegationLimit > 0 && (
+            <div className="flex items-center gap-1.5 text-xs">
+              <div className="w-3 h-3 rounded" style={{backgroundColor:'rgba(248,113,113,0.5)', border:'1.5px solid rgba(248,113,113,0.9)'}} />
+              <span style={{color:'#fca5a5'}}>Degradasi</span>
+            </div>
+          )}
+        </div>
+      )}
       <table className="w-full text-sm">
         <colgroup>
           <col style={{width: '2.5rem'}} />
@@ -1047,8 +1055,8 @@ function StandingsTable({ rows, promotionCount, relegationCount, isTopDivision, 
           <col style={{width: '2.5rem'}} />
         </colgroup>
         <thead>
-          <tr className="text-slate-400 text-xs font-mono bg-slate-50">
-            <th className="text-left pl-4 pr-1 py-2">#</th>
+          <tr className="text-xs font-mono" style={{color:'#64748b', borderBottom:'1px solid rgba(255,255,255,0.08)', backgroundColor:'rgba(255,255,255,0.03)'}}>
+            <th className="text-center pl-4 pr-1 py-2">#</th>
             <th className="text-left pl-1 pr-2 py-2">Tim</th>
             <th className="py-2 text-center">M</th>
             <th className="py-2 text-center">W</th>
@@ -1058,12 +1066,11 @@ function StandingsTable({ rows, promotionCount, relegationCount, isTopDivision, 
             <th className="py-2 pr-4 text-center text-brand-600">Pts</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-white/5">
           {tRows}
           {emptyRow}
         </tbody>
       </table>
-      {legend}
     </div>
   )
 }
@@ -1777,59 +1784,205 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
 
 // ─── Modal Setup Bracket Awal ────────────────────────────────────────────────
 // Step 1: pilih babak awal + format leg
-// Step 2: pilih tim peserta + acak
+// Step 2: pilih tim
+// Step 3: atur pairing manual
 function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
   const teamList = enrolledTeams.map(st => st.team).filter(Boolean)
+
+  // Jumlah tim yang dibutuhkan per babak
+  const teamCount = { r32: 32, r16: 16, qf: 8, sf: 4, final: 2 }
+
   const [step, setStep]       = useState(1)
   const [stage, setStage]     = useState(null)
   const [legs, setLegs]       = useState(1)
   const [selected, setSelected] = useState([])
+  const [pairs, setPairs]     = useState([])
   const [saving, setSaving]   = useState(false)
 
-  // Jumlah tim yang dibutuhkan per babak
-  const teamCount = { r32: 32, r16: 16, qf: 8, sf: 4, final: 2 }
   const needed = teamCount[stage] ?? 0
+  const isExact = selected.length === needed
+  const selectedTeams = teamList.filter(t => selected.includes(t.id))
 
   function toggleTeam(id) {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  async function handleGenerate() {
-    if (selected.length < 2) { alert('Pilih minimal 2 tim!'); return }
-    setSaving(true)
-
-    const shuffled = [...selected].sort(() => Math.random() - 0.5)
-    const matchRows = []
-    for (let i = 0; i < shuffled.length; i += 2) {
-      if (shuffled[i + 1]) {
-        const pairIndex = Math.floor(i / 2) + 1
-        matchRows.push({
-          season_id: seasonId,
-          home_team_id: shuffled[i],
-          away_team_id: shuffled[i + 1],
-          stage,
-          round: pairIndex,
-          leg_number: 1,
-          status: 'scheduled'
-        })
-        if (legs === 2) {
-          matchRows.push({
-            season_id: seasonId,
-            home_team_id: shuffled[i + 1],
-            away_team_id: shuffled[i],
-            stage,
-            round: pairIndex,
-            leg_number: 2,
-            status: 'scheduled'
-          })
-        }
+  function initManualPairs() {
+    const newPairs = []
+    for (let i = 0; i < selected.length; i += 2) {
+      if (selected[i + 1]) {
+        newPairs.push({ homeTeamId: selected[i], awayTeamId: selected[i + 1] })
       }
     }
+    setPairs(newPairs)
+    setStep(3)
+  }
+
+  function swapPair(idx) {
+    setPairs(prev => {
+      const copy = [...prev]
+      copy[idx] = { homeTeamId: copy[idx].awayTeamId, awayTeamId: copy[idx].homeTeamId }
+      return copy
+    })
+  }
+
+  function changeHomeTeam(pairIdx, teamId) {
+    setPairs(prev => {
+      const copy = [...prev]
+      copy[pairIdx] = { ...copy[pairIdx], homeTeamId: teamId }
+      return copy
+    })
+  }
+  function changeAwayTeam(pairIdx, teamId) {
+    setPairs(prev => {
+      const copy = [...prev]
+      copy[pairIdx] = { ...copy[pairIdx], awayTeamId: teamId }
+      return copy
+    })
+  }
+
+  function getTeamObj(id) { return teamList.find(t => t.id === id) }
+
+  function allTeamsUnique() {
+    const used = new Set()
+    for (const p of pairs) {
+      if (used.has(p.homeTeamId) || used.has(p.awayTeamId)) return false
+      used.add(p.homeTeamId)
+      used.add(p.awayTeamId)
+    }
+    return used.size === selected.length
+  }
+
+  async function handleSave(pairData) {
+    setSaving(true)
+    const matchRows = []
+    pairData.forEach((pair, i) => {
+      const round = i + 1
+      matchRows.push({
+        season_id: seasonId,
+        home_team_id: pair.homeTeamId,
+        away_team_id: pair.awayTeamId,
+        stage,
+        round,
+        leg_number: 1,
+        status: 'scheduled'
+      })
+      if (legs === 2) {
+        matchRows.push({
+          season_id: seasonId,
+          home_team_id: pair.awayTeamId,
+          away_team_id: pair.homeTeamId,
+          stage,
+          round,
+          leg_number: 2,
+          status: 'scheduled'
+        })
+      }
+    })
 
     const { error } = await supabase.from('matches').insert(matchRows)
     if (error) alert('Gagal: ' + error.message)
     setSaving(false)
     if (!error) onSaved()
+  }
+
+  async function handleRandom() {
+    if (selected.length < 2) { alert('Pilih minimal 2 tim!'); return }
+    const shuffled = [...selected].sort(() => Math.random() - 0.5)
+    const pairData = []
+    for (let i = 0; i < shuffled.length; i += 2) {
+      if (shuffled[i + 1]) {
+        pairData.push({ homeTeamId: shuffled[i], awayTeamId: shuffled[i + 1] })
+      }
+    }
+    await handleSave(pairData)
+  }
+
+  async function handleManualSave() {
+    if (!allTeamsUnique()) { alert('Ada tim yang terpakai lebih dari sekali! Periksa pairing.'); return }
+    await handleSave(pairs)
+  }
+
+  // Step 3: Pairing manual
+  if (step === 3) {
+    const usedTeamIds = new Set()
+    pairs.forEach(p => { usedTeamIds.add(p.homeTeamId); usedTeamIds.add(p.awayTeamId) })
+    const unpairedTeams = selectedTeams.filter(t => !usedTeamIds.has(t.id))
+
+    return (
+      <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setStep(2)} className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100">
+              <ArrowLeft size={16} />
+            </button>
+            <div>
+              <h2 className="font-display font-bold text-base">Atur Pasangan — {KO_ROUNDS.find(r => r.key === stage)?.label}</h2>
+              <p className="text-[10px] text-slate-400 mt-0.5">Atur pairing tim secara manual</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
+        </div>
+
+        <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50 shrink-0">
+          <p className="text-xs text-slate-500">Atur pasangan tim. Tombol ⇄ untuk swap home/away.</p>
+          {unpairedTeams.length > 0 && (
+            <p className="text-[10px] text-accent-red mt-1">⚠ {unpairedTeams.length} tim belum dipasangkan!</p>
+          )}
+        </div>
+
+        <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
+          {pairs.map((pair, i) => {
+            const home = getTeamObj(pair.homeTeamId)
+            const away = getTeamObj(pair.awayTeamId)
+            return (
+              <div key={i} className="px-5 py-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Pair {i + 1}</span>
+                  <button onClick={() => swapPair(i)} className="text-slate-300 hover:text-brand-600 transition-colors text-xs px-2 py-0.5 rounded hover:bg-slate-100" title="Swap home/away">
+                    ⇄ Swap
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <select value={pair.homeTeamId} onChange={e => changeHomeTeam(i, parseInt(e.target.value))}
+                      className="input text-sm w-full appearance-none cursor-pointer">
+                      {selected.map(tid => {
+                        const t = getTeamObj(tid)
+                        const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
+                        return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
+                      })}
+                    </select>
+                  </div>
+                  <span className="text-slate-300 text-xs font-mono shrink-0">vs</span>
+                  <div className="relative flex-1">
+                    <select value={pair.awayTeamId} onChange={e => changeAwayTeam(i, parseInt(e.target.value))}
+                      className="input text-sm w-full appearance-none cursor-pointer">
+                      {selected.map(tid => {
+                        const t = getTeamObj(tid)
+                        const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
+                        return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
+                      })}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
+          <button onClick={() => handleRandom()} disabled={saving}
+            className="btn-secondary flex-1 text-sm flex items-center justify-center gap-1.5">
+            🎲 {saving ? '...' : 'Acak'}
+          </button>
+          <button onClick={handleManualSave} disabled={saving || !allTeamsUnique()}
+            className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
+            {saving ? 'Menyimpan...' : 'Simpan Pairing'}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -1838,7 +1991,7 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
         <div>
           <h2 className="font-display font-bold text-base">Setup Bracket</h2>
-              <p className="text-[10px] text-slate-400 mt-0.5">Langkah {step} dari 2</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Langkah {step} dari 3</p>
         </div>
         <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
       </div>
@@ -1860,7 +2013,7 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
                         : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300'}`}
                   >
                     <span className="font-display font-semibold">{r.label}</span>
-              <span className="text-[10px] text-slate-400 font-mono">{teamCount[r.key]} tim</span>
+                    <span className="text-[10px] text-slate-400 font-mono">{teamCount[r.key]} tim</span>
                   </button>
                 ))}
               </div>
@@ -1938,12 +2091,13 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
             <button onClick={() => setStep(1)} className="btn-secondary text-sm px-4">
               <ArrowLeft size={14} />
             </button>
-            <button
-              onClick={handleGenerate}
-              disabled={saving || selected.length !== needed}
-              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5"
-            >
-              {saving ? 'Menyimpan...' : <><Swords size={14} /> Acak & Generate</>}
+            <button onClick={handleRandom} disabled={saving || !isExact}
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
+              🎲 {saving ? 'Menyimpan...' : 'Acak & Generate'}
+            </button>
+            <button onClick={initManualPairs} disabled={!isExact}
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
+              <Swords size={14} /> Atur Manual
             </button>
           </div>
         </>
@@ -2355,55 +2509,101 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
   const teamCount = { r32: 32, r16: 16, qf: 8, sf: 4, final: 2 }
   const needed = teamCount[stage] ?? 0
 
+  const [step, setStep]     = useState(1) // 1: pilih tim, 2: atur pairing manual
   const [selected, setSelected] = useState([...usedIds])
-  const [legs, setLegs] = useState(existingLegs)
+  const [legs, setLegs]     = useState(existingLegs)
   const [saving, setSaving] = useState(false)
+  // Untuk pairing manual: array of { homeTeamId, awayTeamId }
+  const [pairs, setPairs]   = useState([])
 
   const isExact = selected.length === needed
   const tooMany = selected.length > needed
   const tooFew  = selected.length < needed
 
+  // Ambil data tim yang dipilih
+  const selectedTeams = teamList.filter(t => selected.includes(t.id))
+
   function toggleTeam(id) {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  async function handleRandom() {
-    if (selected.length < 2) { alert('Pilih minimal 2 tim!'); return }
-    setSaving(true)
+  // Init pairing dari selected teams (urut berpasangan)
+  function initManualPairs() {
+    const newPairs = []
+    for (let i = 0; i < selected.length; i += 2) {
+      if (selected[i + 1]) {
+        newPairs.push({ homeTeamId: selected[i], awayTeamId: selected[i + 1] })
+      }
+    }
+    setPairs(newPairs)
+    setStep(2)
+  }
 
+  // Swap home/away dalam satu pair
+  function swapPair(idx) {
+    setPairs(prev => {
+      const copy = [...prev]
+      copy[idx] = { homeTeamId: copy[idx].awayTeamId, awayTeamId: copy[idx].homeTeamId }
+      return copy
+    })
+  }
+
+  // Pindah tim ke pair lain: home slot atau away slot
+  function changeHomeTeam(pairIdx, teamId) {
+    setPairs(prev => {
+      const copy = [...prev]
+      copy[pairIdx] = { ...copy[pairIdx], homeTeamId: teamId }
+      return copy
+    })
+  }
+  function changeAwayTeam(pairIdx, teamId) {
+    setPairs(prev => {
+      const copy = [...prev]
+      copy[pairIdx] = { ...copy[pairIdx], awayTeamId: teamId }
+      return copy
+    })
+  }
+
+  // Cek apakah semua tim terpakai unik
+  function allTeamsUnique() {
+    const used = new Set()
+    for (const p of pairs) {
+      if (used.has(p.homeTeamId) || used.has(p.awayTeamId)) return false
+      used.add(p.homeTeamId)
+      used.add(p.awayTeamId)
+    }
+    return used.size === selected.length
+  }
+
+  async function handleSave(pairData) {
+    setSaving(true)
     // Hapus laga lama di babak ini dulu
     await supabase.from('matches').delete().eq('season_id', seasonId).eq('stage', stage)
 
-    // Shuffle tim
-    const shuffled = [...selected].sort(() => Math.random() - 0.5)
     const matchRows = []
-    for (let i = 0; i < shuffled.length; i += 2) {
-      if (shuffled[i + 1]) {
-        const pairIndex = Math.floor(i / 2) + 1
-        // Leg 1
+    pairData.forEach((pair, i) => {
+      const round = i + 1
+      matchRows.push({
+        season_id: seasonId,
+        home_team_id: pair.homeTeamId,
+        away_team_id: pair.awayTeamId,
+        stage,
+        round,
+        leg_number: 1,
+        status: 'scheduled'
+      })
+      if (legs === 2) {
         matchRows.push({
           season_id: seasonId,
-          home_team_id: shuffled[i],
-          away_team_id: shuffled[i + 1],
+          home_team_id: pair.awayTeamId,
+          away_team_id: pair.homeTeamId,
           stage,
-          round: pairIndex,
-          leg_number: 1,
+          round,
+          leg_number: 2,
           status: 'scheduled'
         })
-        // Leg 2 — kandang dibalik
-        if (legs === 2) {
-          matchRows.push({
-            season_id: seasonId,
-            home_team_id: shuffled[i + 1],
-            away_team_id: shuffled[i],
-            stage,
-            round: pairIndex,
-            leg_number: 2,
-            status: 'scheduled'
-          })
-        }
       }
-    }
+    })
 
     const { error } = await supabase.from('matches').insert(matchRows)
     if (error) alert('Gagal: ' + error.message)
@@ -2411,68 +2611,164 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
     onSaved()
   }
 
+  async function handleRandom() {
+    if (selected.length < 2) { alert('Pilih minimal 2 tim!'); return }
+    const shuffled = [...selected].sort(() => Math.random() - 0.5)
+    const pairData = []
+    for (let i = 0; i < shuffled.length; i += 2) {
+      if (shuffled[i + 1]) {
+        pairData.push({ homeTeamId: shuffled[i], awayTeamId: shuffled[i + 1] })
+      }
+    }
+    await handleSave(pairData)
+  }
+
+  async function handleManualSave() {
+    if (!allTeamsUnique()) { alert('Ada tim yang terpakai lebih dari sekali! Periksa pairing.'); return }
+    await handleSave(pairs)
+  }
+
+  // Step 1: Pilih tim + format
+  if (step === 1) {
+    return createPortal(
+      <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
+            <h2 className="font-display font-bold text-base">Kelola Tim — {stageLabel}</h2>
+            <div className="flex items-center gap-3">
+              <span className={`text-sm font-display font-bold tabular-nums ${isExact ? 'text-accent-green' : tooMany ? 'text-accent-red' : 'text-slate-400'}`}>
+                {selected.length}<span className="text-slate-300 font-normal">/{needed}</span>
+              </span>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
+            </div>
+          </div>
+          {(tooMany || (tooFew && selected.length > 0)) && (
+            <div className={`px-5 py-2 text-[11px] shrink-0 ${tooMany ? 'text-accent-red bg-red-50' : 'text-slate-500 bg-slate-50'}`}>
+              {tooMany ? `Terlalu banyak. ${stageLabel} butuh tepat ${needed} tim.` : `Butuh ${needed - selected.length} tim lagi untuk ${stageLabel}.`}
+            </div>
+          )}
+          <div className="px-5 pt-4 pb-2 shrink-0">
+            <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
+            <div className="flex gap-2">
+              <button onClick={() => setLegs(1)}
+                className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
+              <button onClick={() => setLegs(2)}
+                className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
+            </div>
+          </div>
+
+          <p className="px-5 pt-2 pb-1 text-xs text-slate-400">Pilih tim yang masuk babak ini, lalu pilih metode:</p>
+          <div className="divide-y divide-slate-100 overflow-y-auto flex-1 mt-1">
+            {teamList.map(t => {
+              const checked = selected.includes(t.id)
+              return (
+                <button key={t.id} onClick={() => toggleTeam(t.id)}
+                  className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-brand-600 overflow-hidden shrink-0">
+                    {t.owner?.avatar_url ? <img src={t.owner.avatar_url} alt="" /> : t.name[0]}
+                  </div>
+                  <span className="font-medium text-sm flex-1">{t.name}</span>
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-slate-300'}`}>
+                    {checked && <Check size={12} className="text-white" />}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
+            <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
+            <button onClick={handleRandom} disabled={saving || !isExact}
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
+              🎲 {saving ? 'Menyimpan...' : 'Acak'}
+            </button>
+            <button onClick={initManualPairs} disabled={!isExact}
+              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
+              <Swords size={14} /> Atur Manual
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )
+  }
+
+  // Step 2: Pairing manual
+  const usedTeamIds = new Set()
+  pairs.forEach(p => { usedTeamIds.add(p.homeTeamId); usedTeamIds.add(p.awayTeamId) })
+  const unpairedTeams = selectedTeams.filter(t => !usedTeamIds.has(t.id))
+
+  function getTeamObj(id) { return teamList.find(t => t.id === id) }
+
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
-          <h2 className="font-display font-bold text-base">Kelola Tim — {stageLabel}</h2>
-          <div className="flex items-center gap-3">
-            <span className={`text-sm font-display font-bold tabular-nums ${isExact ? 'text-accent-green' : tooMany ? 'text-accent-red' : 'text-slate-400'}`}>
-              {selected.length}<span className="text-slate-300 font-normal">/{needed}</span>
-            </span>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
-          </div>
-        </div>
-        {(tooMany || (tooFew && selected.length > 0)) && (
-          <div className={`px-5 py-2 text-[11px] shrink-0 ${tooMany ? 'text-accent-red bg-red-50' : 'text-slate-500 bg-slate-50'}`}>
-            {tooMany
-              ? `Terlalu banyak. ${stageLabel} butuh tepat ${needed} tim.`
-              : `Butuh ${needed - selected.length} tim lagi untuk ${stageLabel}.`}
-          </div>
-        )}
-        <div className="px-5 pt-4 pb-2 shrink-0">
-          <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setLegs(1)}
-              className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
-            >
-              1 Leg
+          <div className="flex items-center gap-2">
+            <button onClick={() => setStep(1)} className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100">
+              <ArrowLeft size={16} />
             </button>
-            <button
-              onClick={() => setLegs(2)}
-              className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
-            >
-              2 Leg
-            </button>
+            <h2 className="font-display font-bold text-base">Atur Pasangan — {stageLabel}</h2>
           </div>
-          <p className="text-[10px] text-slate-300 mt-1.5">
-            {legs === 1 ? '1 pertandingan per pasangan. Pemenang langsung lolos.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat skor.'}
-          </p>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
         </div>
 
-        <p className="px-5 pt-2 pb-1 text-xs text-slate-400">Pilih tim yang masuk babak ini, lalu klik Acak untuk generate laga secara random.</p>
-        <div className="divide-y divide-slate-100 overflow-y-auto flex-1 mt-1">
-          {teamList.map(t => {
-            const checked = selected.includes(t.id)
+        <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50 shrink-0">
+          <p className="text-xs text-slate-500">Atur pasangan tim. Klik tim untuk memilih pengganti. Tap tombol ⇄ untuk swap home/away.</p>
+          {unpairedTeams.length > 0 && (
+            <p className="text-[10px] text-accent-red mt-1">⚠ {unpairedTeams.length} tim belum dipasangkan!</p>
+          )}
+        </div>
+
+        <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
+          {pairs.map((pair, i) => {
+            const home = getTeamObj(pair.homeTeamId)
+            const away = getTeamObj(pair.awayTeamId)
             return (
-              <button key={t.id} onClick={() => toggleTeam(t.id)}
-                className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
-                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-brand-600 overflow-hidden shrink-0">
-                  {t.owner?.avatar_url ? <img src={t.owner.avatar_url} alt="" className="w-full h-full object-cover" /> : t.name[0]}
+              <div key={i} className="px-5 py-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Pair {i + 1}</span>
+                  <button onClick={() => swapPair(i)} className="text-slate-300 hover:text-brand-600 transition-colors text-xs px-2 py-0.5 rounded hover:bg-slate-100" title="Swap home/away">
+                    ⇄ Swap
+                  </button>
                 </div>
-                <span className="font-medium text-sm flex-1">{t.name}</span>
-                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-slate-300'}`}>
-                  {checked && <Check size={12} className="text-white" />}
+                <div className="flex items-center gap-2">
+                  {/* Home team selector */}
+                  <div className="relative flex-1">
+                    <select value={pair.homeTeamId} onChange={e => changeHomeTeam(i, parseInt(e.target.value))}
+                      className="input text-sm w-full appearance-none cursor-pointer">
+                      {selected.map(tid => {
+                        const t = getTeamObj(tid)
+                        const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
+                        return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
+                      })}
+                    </select>
+                  </div>
+                  <span className="text-slate-300 text-xs font-mono shrink-0">vs</span>
+                  {/* Away team selector */}
+                  <div className="relative flex-1">
+                    <select value={pair.awayTeamId} onChange={e => changeAwayTeam(i, parseInt(e.target.value))}
+                      className="input text-sm w-full appearance-none cursor-pointer">
+                      {selected.map(tid => {
+                        const t = getTeamObj(tid)
+                        const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
+                        return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
+                      })}
+                    </select>
+                  </div>
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>
+
         <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
-          <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
-          <button onClick={handleRandom} disabled={saving || !isExact} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
-            🎲 {saving ? 'Menyimpan...' : `Acak (${selected.length} tim)`}
+          <button onClick={() => handleRandom()} disabled={saving}
+            className="btn-secondary flex-1 text-sm flex items-center justify-center gap-1.5">
+            🎲 {saving ? '...' : 'Acak Ulang'}
+          </button>
+          <button onClick={handleManualSave} disabled={saving || !allTeamsUnique()}
+            className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
+            {saving ? 'Menyimpan...' : 'Simpan Pairing'}
           </button>
         </div>
       </div>

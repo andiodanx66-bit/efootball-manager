@@ -50,7 +50,7 @@ export default function DashboardPage() {
       setMyTeamId(teamId)
       if (teamId) {
         const { data: matchData } = await supabase.from('matches')
-          .select('*, home_team:teams!home_team_id(id,name,owner:profiles!owner_id(whatsapp)), away_team:teams!away_team_id(id,name,owner:profiles!owner_id(whatsapp)), season:seasons(id,name,type)')
+          .select('*, home_team:teams!home_team_id(id,name,owner:profiles!owner_id(whatsapp,avatar_url)), away_team:teams!away_team_id(id,name,owner:profiles!owner_id(whatsapp,avatar_url)), season:seasons(id,name,type)')
           .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
           .order('round')
         setMyMatches(matchData || [])
@@ -109,9 +109,12 @@ export default function DashboardPage() {
 
       {myTeamId && (
         <div className="space-y-3">
-          <h2 className="font-display font-semibold text-lg flex items-center gap-2 text-ink">
-            <Swords size={18} className="text-brand-600" /> Jadwal Tim Saya
-          </h2>
+          <div>
+            <h2 className="font-display font-semibold text-lg flex items-center gap-2 text-ink">
+              <Swords size={18} className="text-brand-600" /> Jadwal Tim Saya
+            </h2>
+            <p className="text-xs text-ink-faint mt-0.5">Klik papan skor untuk input hasil, klik nama tim untuk chat</p>
+          </div>
           {myMatches.length === 0 ? (
             <div className="card p-8 text-center text-ink-faint text-sm">Belum ada jadwal</div>
           ) : (
@@ -161,41 +164,65 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick })
   const [, { name, type, matches: sMatches }] = current
 
   function renderMatchRow(m) {
-    const isHome = myTeamId === m.home_team_id
-    const oppWa  = isHome ? m.away_team?.owner?.whatsapp : m.home_team?.owner?.whatsapp
+    const homeWa = m.home_team?.owner?.whatsapp
+    const awayWa = m.away_team?.owner?.whatsapp
+    const homeWaLink = homeWa ? `https://kirimwa.id/${homeWa.replace(/\D/g, '')}` : null
+    const awayWaLink = awayWa ? `https://kirimwa.id/${awayWa.replace(/\D/g, '')}` : null
+    const canClick = canInput(m)
+
     return (
-      <div key={m.id} className="flex flex-wrap items-center px-4 py-3 gap-x-2 gap-y-1.5 table-row-hover">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="flex items-center gap-1 min-w-0">
-            <span className="text-sm font-medium truncate max-w-[80px]">{m.home_team?.name}</span>
-            {!isHome && oppWa && (
-              <a href={`https://kirimwa.id/${oppWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-                className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0"><WaIcon /></a>
-            )}
-          </div>
-          <div
-            className={`font-display font-bold text-sm bg-surface-muted rounded-lg px-2 py-1 w-12 text-center shrink-0 border border-surface-border ${m.screenshot_url ? 'cursor-pointer hover:bg-surface-border' : ''}`}
-            onClick={() => m.screenshot_url && onImgClick(m.screenshot_url)}
-          >
-            {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
-          </div>
-          <div className="flex items-center gap-1 min-w-0">
-            <span className="text-sm font-medium truncate max-w-[80px]">{m.away_team?.name}</span>
-            {isHome && oppWa && (
-              <a href={`https://kirimwa.id/${oppWa.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-                className="text-accent-green hover:text-accent-green/70 transition-colors shrink-0"><WaIcon /></a>
-            )}
+      <div key={m.id}
+        onClick={() => canClick && onScoreClick(m)}
+        className={`relative flex items-center justify-center px-4 py-3 gap-x-3 gap-y-1.5 ${canClick ? 'cursor-pointer hover:bg-surface-border' : ''}`}>
+        {/* Home team */}
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
+          {homeWaLink ? (
+            <a href={homeWaLink} target="_blank" rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="text-sm font-medium truncate max-w-[90px] text-right hover:text-accent-green underline underline-offset-2 transition-colors">
+              {m.home_team?.name}
+            </a>
+          ) : (
+            <span className="text-sm font-medium truncate max-w-[90px] text-right">{m.home_team?.name}</span>
+          )}
+          <div className="w-6 h-6 rounded bg-surface-muted flex items-center justify-center text-xs font-bold font-display text-brand-600 overflow-hidden shrink-0">
+            {m.home_team?.owner?.avatar_url
+              ? <img src={m.home_team.owner.avatar_url} alt="" className="w-full h-full object-cover" />
+              : (m.home_team?.name || '?')[0]}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {canInput(m) && (
-            <button onClick={() => onScoreClick(m)} className="badge-blue cursor-pointer hover:bg-brand-500/30 transition-colors p-1.5 flex items-center">
-              <Pencil size={13} />
-            </button>
+
+        {/* Score */}
+        <div
+          className={`font-display font-bold text-sm rounded-lg px-2 py-1 w-12 text-center shrink-0 border ${canClick ? 'cursor-pointer hover:bg-slate-100' : ''} ${m.screenshot_url ? 'border-brand-300' : ''}`}
+          style={{backgroundColor:"#f1f5f9",borderColor:"#e2e8f0"}}
+          onClick={e => { if (canClick) { e.stopPropagation(); onScoreClick(m) } else if (m.screenshot_url) { e.stopPropagation(); onImgClick(m.screenshot_url) } }}
+        >
+          {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
+        </div>
+
+        {/* Away team */}
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-start">
+          <div className="w-6 h-6 rounded bg-surface-muted flex items-center justify-center text-xs font-bold font-display text-brand-600 overflow-hidden shrink-0">
+            {m.away_team?.owner?.avatar_url
+              ? <img src={m.away_team.owner.avatar_url} alt="" className="w-full h-full object-cover" />
+              : (m.away_team?.name || '?')[0]}
+          </div>
+          {awayWaLink ? (
+            <a href={awayWaLink} target="_blank" rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="text-sm font-medium truncate max-w-[90px] hover:text-accent-green underline underline-offset-2 transition-colors">
+              {m.away_team?.name}
+            </a>
+          ) : (
+            <span className="text-sm font-medium truncate max-w-[90px]">{m.away_team?.name}</span>
           )}
+        </div>
+
+        {/* Status badges — absolute positioned */}
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
           {m.status === 'pending_result' && <span className={`${statusBadge.pending_result} flex items-center`}><Clock size={11} /></span>}
           {m.status === 'approved' && <span className={statusBadge.approved}>✓</span>}
-          {m.status === 'scheduled' && !canInput(m) && <span className={statusBadge.scheduled}>–</span>}
         </div>
       </div>
     )
