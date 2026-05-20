@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [scoreModal, setScoreModal] = useState(null)
   const [imgModal,   setImgModal]   = useState(null)
   const [loading,    setLoading]    = useState(true)
+  const [seasonIdx,  setSeasonIdx]  = useState(0)
 
   useEffect(() => { fetchData() }, [user?.id])
 
@@ -65,15 +66,25 @@ export default function DashboardPage() {
       m.status !== 'approved'
   }
 
-  const myDone  = myMatches.filter(m => m.status === 'approved').length
-  const myTotal = myMatches.length
+  // Kelompokkan per kompetisi (sama seperti di SeasonSlider)
+  const seasonMap = {}
+  myMatches.forEach(m => {
+    const sid = m.season_id
+    if (!seasonMap[sid]) seasonMap[sid] = []
+    seasonMap[sid].push(m)
+  })
+  const seasonEntries = Object.entries(seasonMap)
+  const activeSeasonMatches = seasonEntries[seasonIdx]?.[1] ?? myMatches
 
-  const myPending = myMatches.filter(m => m.status === 'pending_result').length
+  const myDone  = activeSeasonMatches.filter(m => m.status === 'approved').length
+  const myTotal = activeSeasonMatches.length
+
+  const myPending = activeSeasonMatches.filter(m => m.status === 'pending_result').length
 
   const cards = [
     { label: 'Total Kompetisi', value: stats.seasons, icon: Trophy,   color: 'brand',  to: '/seasons' },
     { label: 'Match Dimainkan', value: myTeamId ? `${myDone}/${myTotal}` : stats.matches, icon: Calendar, color: 'green', to: '/seasons' },
-    { label: 'Hasil Pending',   value: isAdmin ? stats.pending : myPending, icon: Clock, color: 'yellow', to: isAdmin ? '/admin' : '/seasons' },
+    { label: 'Hasil Pending',   value: isAdmin ? stats.pending : (myTeamId ? myPending : stats.pending), icon: Clock, color: 'yellow', to: isAdmin ? '/admin' : '/seasons' },
   ]
 
   const colorMap = {
@@ -118,7 +129,7 @@ export default function DashboardPage() {
           {myMatches.length === 0 ? (
             <div className="card p-8 text-center text-ink-faint text-sm">Belum ada jadwal</div>
           ) : (
-            <SeasonSlider matches={myMatches} myTeamId={myTeamId} canInput={canInput} onScoreClick={setScoreModal} onImgClick={setImgModal} />
+          <SeasonSlider matches={myMatches} myTeamId={myTeamId} canInput={canInput} onScoreClick={setScoreModal} onImgClick={setImgModal} seasonIdx={seasonIdx} onSeasonChange={setSeasonIdx} />
           )}
         </div>
       )}
@@ -141,7 +152,7 @@ export default function DashboardPage() {
   )
 }
 
-function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick }) {
+function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick, seasonIdx, onSeasonChange }) {
   const KO_ROUNDS = [
     { key: 'r16',   label: '16 Besar' },
     { key: 'qf',    label: 'Perempat Final' },
@@ -157,7 +168,7 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick })
     seasonMap[sid].matches.push(m)
   })
   const seasons = Object.entries(seasonMap)
-  const [idx, setIdx] = useState(0)
+  const idx = seasonIdx
   const current = seasons[idx]
 
   if (!current) return null
@@ -306,13 +317,13 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick })
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <button
-            onClick={() => setIdx(i => Math.max(0, i - 1))}
+            onClick={() => onSeasonChange(i => Math.max(0, i - 1))}
             disabled={idx === 0}
             className="w-8 h-8 rounded-lg bg-surface-muted hover:bg-surface-border disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-lg text-ink"
           >‹</button>
           <span className="font-display font-semibold text-sm text-brand-600 truncate">{name}</span>
           <button
-            onClick={() => setIdx(i => Math.min(seasons.length - 1, i + 1))}
+            onClick={() => onSeasonChange(i => Math.min(seasons.length - 1, i + 1))}
             disabled={idx === seasons.length - 1}
             className="w-8 h-8 rounded-lg bg-surface-muted hover:bg-surface-border disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-lg text-ink"
           >›</button>

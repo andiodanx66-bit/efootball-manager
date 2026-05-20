@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth'
 
 export default function SeasonFormModal({ season, onClose, onSaved }) {
   const { user, isAdmin } = useAuth()
-  const [form,    setForm]    = useState({ name: '', type: 'league', legs: 1, num_groups: 4, num_divisions: 1, promotion_count: 0, relegation_count: 0 })
+  const [form,    setForm]    = useState({ name: '', type: 'league', legs: 1, num_groups: 4, num_divisions: 1, promotion_count: 0, relegation_count: 0, season_group: '' })
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
 
@@ -22,9 +22,10 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
         promotion_count: season.promotion_count || 0,
         relegation_count: season.relegation_count || 0,
         status:          season.status          || 'active',
+        season_group:    season.season_group    || '',
       })
     } else {
-      setForm({ name: '', type: 'league', legs: 1, num_groups: 4, num_divisions: 1, promotion_count: 0, relegation_count: 0 })
+      setForm({ name: '', type: 'league', legs: 1, num_groups: 4, num_divisions: 1, promotion_count: 0, relegation_count: 0, season_group: '' })
     }
     setError('')
   }, [season])
@@ -60,6 +61,7 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
         num_divisions:   form.type === 'league' ? parseInt(form.num_divisions) : 1,
         promotion_count: form.type === 'league' && form.num_divisions > 1 ? parseInt(form.promotion_count) : 0,
         relegation_count: form.type === 'league' && form.num_divisions > 1 ? parseInt(form.relegation_count) : 0,
+        season_group:    form.season_group.trim() || null,
       }
       if (isEdit) {
         const { error: err } = await supabase.from('seasons').update({
@@ -110,6 +112,18 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
           <div>
             <label className="text-sm font-medium mb-1.5 block" style={{color:'#64748b'}}>Nama Kompetisi</label>
             <input required value={form.name} onChange={update('name')} className="input" placeholder="Liga Musim 1" />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium mb-1.5 block" style={{color:'#64748b'}}>
+              Musim <span className="text-xs font-normal" style={{color:'#94a3b8'}}>(opsional — untuk pengelompokan)</span>
+            </label>
+            <input
+              value={form.season_group}
+              onChange={update('season_group')}
+              className="input"
+              placeholder="cth: Musim 1, 2024/2025"
+            />
           </div>
 
           <div>

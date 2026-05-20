@@ -22,11 +22,10 @@ export default function TeamDetail() {
   async function fetchAll() {
     const [{ data: t }, { data: m }] = await Promise.all([
       supabase.from('teams').select('*, owner:profiles!owner_id(username, id, avatar_url, whatsapp, efootball_id)').eq('id', id).single(),
-      supabase.from('matches')
-        .select('*, home_team:teams!home_team_id(id,name), away_team:teams!away_team_id(id,name), season:seasons(name,type)')
+      supabase.from('match_history')
+        .select('*')
         .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
-        .eq('status', 'approved')
-        .order('match_date', { ascending: false })
+        .order('approved_at', { ascending: false })
     ])
     setTeam(t)
     setMatches(m || [])
@@ -99,14 +98,14 @@ export default function TeamDetail() {
                 const resultBadge = result === 'W' ? 'badge-green' : result === 'L' ? 'badge-red' : 'badge-gray'
                 return (
                   <div key={m.id} className="flex items-center px-5 py-3 gap-3 table-row-hover">
-                    <div className="w-[35%] text-right text-sm font-medium truncate" style={{color:'#0f172a'}}>{m.home_team?.name}</div>
+                    <div className="w-[35%] text-right text-sm font-medium truncate" style={{color:'#0f172a'}}>{m.home_team_name}</div>
                     <div className="font-display font-bold text-base rounded-lg px-3 py-1 w-[80px] text-center shrink-0 border" style={{backgroundColor:'#f1f5f9', borderColor:'#e2e8f0', color:'#0f172a'}}>
                       {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
                     </div>
-                    <div className="w-[35%] text-left text-sm font-medium truncate" style={{color:'#0f172a'}}>{m.away_team?.name}</div>
+                    <div className="w-[35%] text-left text-sm font-medium truncate" style={{color:'#0f172a'}}>{m.away_team_name}</div>
                     <div className="flex items-center gap-1.5 ml-auto shrink-0">
-                      <span className={`hidden sm:inline-flex badge ${m.season?.type === 'champions' ? 'badge-purple' : m.season?.type === 'cup' ? 'badge-yellow' : 'badge-blue'}`}>
-                        {m.season?.name}
+                      <span className={`hidden sm:inline-flex badge ${m.season_type === 'champions' ? 'badge-purple' : m.season_type === 'cup' ? 'badge-yellow' : 'badge-blue'}`}>
+                        {m.season_name}
                       </span>
                       <span className={`badge ${resultBadge}`}>{result}</span>
                     </div>

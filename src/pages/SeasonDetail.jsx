@@ -990,11 +990,15 @@ function StandingsTable({ rows, promotionCount, relegationCount, isTopDivision, 
   const tRows = rows.map((r, i) => {
     const isPromo = promotionLimit > 0 && i < promotionLimit
     const isRel = relegationLimit > 0 && i >= rows.length - relegationLimit
-    const rowBg = isPromo ? 'bg-emerald-500/20' : isRel ? 'bg-red-500/20' : ''
+    const rowBgStyle = isPromo
+      ? { backgroundColor: 'rgba(52,211,153,0.08)' }
+      : isRel
+      ? { backgroundColor: 'rgba(248,113,113,0.08)' }
+      : {}
     const indicatorColor = isPromo ? '#34d399' : isRel ? '#f87171' : 'transparent'
     const pos = i + 1
     return (
-      <tr key={r.team_id || i} className={'table-row-hover ' + rowBg}>
+      <tr key={r.team_id || i} className="table-row-hover" style={rowBgStyle}>
         <td className="pl-4 pr-1 py-2.5 font-mono text-xs text-center" style={{color:'#64748b', borderLeft: `3px solid ${indicatorColor}`}}>{pos}</td>
         <td className="pl-1 pr-2 py-2.5">
           <Link to={`/teams/${r.team_id}`} className="flex items-center gap-2 hover:text-brand-600 transition-colors group">
@@ -1031,14 +1035,14 @@ function StandingsTable({ rows, promotionCount, relegationCount, isTopDivision, 
         <div className="flex items-center gap-4 px-4 py-2 border-b border-white/10" style={{backgroundColor:'rgba(255,255,255,0.04)'}}>
           {promotionLimit > 0 && (
             <div className="flex items-center gap-1.5 text-xs">
-              <div className="w-3 h-3 rounded" style={{backgroundColor:'rgba(52,211,153,0.5)', border:'1.5px solid rgba(52,211,153,0.9)'}} />
-              <span style={{color:'#6ee7b7'}}>Promosi</span>
+              <div className="w-3 h-3 rounded" style={{backgroundColor:'rgba(52,211,153,0.2)', border:'1.5px solid rgba(52,211,153,0.6)'}} />
+              <span style={{color:'#059669'}}>Promosi</span>
             </div>
           )}
           {relegationLimit > 0 && (
             <div className="flex items-center gap-1.5 text-xs">
-              <div className="w-3 h-3 rounded" style={{backgroundColor:'rgba(248,113,113,0.5)', border:'1.5px solid rgba(248,113,113,0.9)'}} />
-              <span style={{color:'#fca5a5'}}>Degradasi</span>
+              <div className="w-3 h-3 rounded" style={{backgroundColor:'rgba(248,113,113,0.2)', border:'1.5px solid rgba(248,113,113,0.6)'}} />
+              <span style={{color:'#dc2626'}}>Degradasi</span>
             </div>
           )}
         </div>
