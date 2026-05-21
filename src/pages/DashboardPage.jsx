@@ -51,7 +51,7 @@ export default function DashboardPage() {
       setMyTeamId(teamId)
       if (teamId) {
         const { data: matchData } = await supabase.from('matches')
-          .select('*, home_team:teams!home_team_id(id,name,owner:profiles!owner_id(whatsapp,avatar_url)), away_team:teams!away_team_id(id,name,owner:profiles!owner_id(whatsapp,avatar_url)), season:seasons(id,name,type)')
+          .select('*, home_team:teams!home_team_id(id,name,owner:profiles!owner_id(whatsapp,avatar_url)), away_team:teams!away_team_id(id,name,owner:profiles!owner_id(whatsapp,avatar_url)), season:seasons(id,name,type,created_at,status)')
           .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
           .order('round')
         setMyMatches(matchData || [])
@@ -118,6 +118,61 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Team Statistics - Compact */}
+      {myTeamId && myMatches.length > 0 && (() => {
+        const stats = myMatches
+          .filter(m => m.status === 'approved')
+          .reduce((acc, m) => {
+            const isHome = m.home_team_id === myTeamId
+            const myScore = isHome ? m.home_score : m.away_score
+            const oppScore = isHome ? m.away_score : m.home_score
+            
+            acc.played++
+            acc.goalsFor += myScore
+            acc.goalsAgainst += oppScore
+            
+            if (myScore > oppScore) acc.won++
+            else if (myScore < oppScore) acc.lost++
+            else acc.drawn++
+            
+            return acc
+          }, { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0 })
+        
+        if (stats.played === 0) return null
+        
+        const winRate = Math.round((stats.won / stats.played) * 100)
+        const goalDiff = stats.goalsFor - stats.goalsAgainst
+        
+        return (
+          <Link to={`/teams/${myTeamId}`} className="card p-3 cursor-pointer hover:border-white/20 transition-colors block">
+            <div className="grid grid-cols-3 divide-x divide-surface-border">
+              {/* Win Rate */}
+              <div className="flex flex-col items-center justify-center gap-0.5 px-3">
+                <div className="text-[10px] text-ink-muted">Win Rate</div>
+                <div className="text-lg font-display font-bold text-accent-green">{winRate}%</div>
+                <div className="text-[10px] text-ink-faint">({stats.won}W-{stats.drawn}D-{stats.lost}L)</div>
+              </div>
+              
+              {/* Goals */}
+              <div className="flex flex-col items-center justify-center gap-0.5 px-3">
+                <div className="text-xs text-ink-muted">Gol</div>
+                <div className="flex items-center gap-1">
+                  <div className="text-lg font-display font-bold text-brand-600">{stats.goalsFor}</div>
+                  <div className="text-xs text-ink-faint">:</div>
+                  <div className="text-lg font-display font-bold text-accent-red">{stats.goalsAgainst}</div>
+                </div>
+              </div>
+              
+              {/* Total Matches */}
+              <div className="flex flex-col items-center justify-center gap-0.5 px-3">
+                <div className="text-xs text-ink-muted">Total Main</div>
+                <div className="text-lg font-display font-bold text-brand-600">{stats.played}</div>
+              </div>
+            </div>
+          </Link>
+        )
+      })()}
+
       {myTeamId && (
         <div className="space-y-3">
           <div>
@@ -160,15 +215,29 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick, s
     { key: 'final', label: 'Final' },
   ]
 
-  // Kelompokkan per kompetisi
+  // Kelompokkan per kompetisi (exclude yang sudah finished)
   const seasonMap = {}
   matches.forEach(m => {
+    // Skip jika kompetisi sudah selesai
+    if (m.season?.status === 'finished') return
+    
     const sid = m.season_id
-    if (!seasonMap[sid]) seasonMap[sid] = { name: m.season?.name || 'Kompetisi', type: m.season?.type || 'league', matches: [] }
+    if (!seasonMap[sid]) seasonMap[sid] = { 
+      name: m.season?.name || 'Kompetisi', 
+      type: m.season?.type || 'league',
+      created_at: m.season?.created_at || '',
+      status: m.season?.status || 'draft',
+      matches: [] 
+    }
     seasonMap[sid].matches.push(m)
   })
-  const seasons = Object.entries(seasonMap)
-  const idx = seasonIdx
+  // Sort seasons: terbaru dulu (descending created_at)
+  const seasons = Object.entries(seasonMap).sort((a, b) => {
+    const dateA = new Date(a[1].created_at).getTime()
+    const dateB = new Date(b[1].created_at).getTime()
+    return dateB - dateA
+  })
+  const idx = Math.min(seasonIdx, Math.max(0, seasons.length - 1))
   const current = seasons[idx]
 
   if (!current) return null

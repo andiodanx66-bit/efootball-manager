@@ -81,6 +81,103 @@ export default function TeamDetail() {
         </div>
       </div>
 
+      {/* Statistics Card */}
+      {matches.length > 0 && (() => {
+        const stats = matches.reduce((acc, m) => {
+          const isHome = m.home_team_id === id
+          const myScore = isHome ? m.home_score : m.away_score
+          const oppScore = isHome ? m.away_score : m.home_score
+          
+          acc.played++
+          acc.goalsFor += myScore
+          acc.goalsAgainst += oppScore
+          
+          if (myScore > oppScore) acc.won++
+          else if (myScore < oppScore) acc.lost++
+          else acc.drawn++
+          
+          return acc
+        }, { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0 })
+        
+        const winRate = stats.played > 0 ? Math.round((stats.won / stats.played) * 100) : 0
+        const goalDiff = stats.goalsFor - stats.goalsAgainst
+        
+        return (
+          <div className="card overflow-hidden">
+            {/* Header */}
+            <div className="px-5 py-3 border-b" style={{borderColor:'#e2e8f0', backgroundColor:'#f8fafc'}}>
+              <h3 className="font-display font-semibold text-sm" style={{color:'#64748b'}}>STATISTIK TIM</h3>
+            </div>
+            
+            {/* Content */}
+            <div className="p-5">
+              {/* Top Row: Main Stats */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                {/* Total Matches */}
+                <div className="text-center p-4 rounded-xl" style={{backgroundColor:'#f1f5f9'}}>
+                  <div className="text-xs font-medium mb-2" style={{color:'#64748b'}}>PERTANDINGAN</div>
+                  <div className="text-4xl font-display font-bold text-brand-600">{stats.played}</div>
+                </div>
+                
+                {/* Win Rate */}
+                <div className="text-center p-4 rounded-xl" style={{backgroundColor:'rgba(34,197,94,0.08)'}}>
+                  <div className="text-xs font-medium mb-2" style={{color:'#64748b'}}>WIN RATE</div>
+                  <div className="text-4xl font-display font-bold text-accent-green">{winRate}%</div>
+                </div>
+                
+                {/* Goal Difference */}
+                <div className="text-center p-4 rounded-xl" style={{backgroundColor: goalDiff >= 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)'}}>
+                  <div className="text-xs font-medium mb-2" style={{color:'#64748b'}}>SELISIH GOL</div>
+                  <div className={`text-4xl font-display font-bold ${goalDiff > 0 ? 'text-accent-green' : goalDiff < 0 ? 'text-accent-red' : 'text-slate-400'}`}>
+                    {goalDiff > 0 ? '+' : ''}{goalDiff}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Bottom Row: Detailed Stats */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Form */}
+                <div className="p-4 rounded-xl border" style={{borderColor:'#e2e8f0', backgroundColor:'#ffffff'}}>
+                  <div className="text-xs font-medium mb-3" style={{color:'#64748b'}}>FORM</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-center flex-1">
+                      <div className="text-2xl font-display font-bold text-accent-green">{stats.won}</div>
+                      <div className="text-[10px] mt-1" style={{color:'#94a3b8'}}>Menang</div>
+                    </div>
+                    <div className="w-px h-8" style={{backgroundColor:'#e2e8f0'}}></div>
+                    <div className="text-center flex-1">
+                      <div className="text-2xl font-display font-bold" style={{color:'#94a3b8'}}>{stats.drawn}</div>
+                      <div className="text-[10px] mt-1" style={{color:'#94a3b8'}}>Seri</div>
+                    </div>
+                    <div className="w-px h-8" style={{backgroundColor:'#e2e8f0'}}></div>
+                    <div className="text-center flex-1">
+                      <div className="text-2xl font-display font-bold text-accent-red">{stats.lost}</div>
+                      <div className="text-[10px] mt-1" style={{color:'#94a3b8'}}>Kalah</div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Goals */}
+                <div className="p-4 rounded-xl border" style={{borderColor:'#e2e8f0', backgroundColor:'#ffffff'}}>
+                  <div className="text-xs font-medium mb-3" style={{color:'#64748b'}}>GOL</div>
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="text-center">
+                      <div className="text-2xl font-display font-bold text-brand-600">{stats.goalsFor}</div>
+                      <div className="text-[10px] mt-1" style={{color:'#94a3b8'}}>Dicetak</div>
+                    </div>
+                    <div className="text-3xl font-display font-bold" style={{color:'#cbd5e1'}}>:</div>
+                    <div className="text-center">
+                      <div className="text-2xl font-display font-bold text-accent-red">{stats.goalsAgainst}</div>
+                      <div className="text-[10px] mt-1" style={{color:'#94a3b8'}}>Kebobolan</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       <div>
         <h2 className="font-display font-semibold text-base mb-3 flex items-center gap-2" style={{color:'#0f172a'}}>
           <Swords size={16} className="text-brand-600" /> Riwayat Pertandingan
