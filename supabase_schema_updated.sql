@@ -267,6 +267,7 @@ select
   t.name        as team_name,
   t.logo_url,
   st.group_id,
+  st.division,
   count(*)      as played,
   sum(won)      as won,
   sum(drawn)    as drawn,
@@ -278,7 +279,7 @@ select
 from match_data md
 join teams t on t.id = md.team_id
 left join season_teams st on st.team_id = md.team_id and st.season_id = md.season_id
-group by md.season_id, md.team_id, t.name, t.logo_url, st.group_id
+group by md.season_id, md.team_id, t.name, t.logo_url, st.group_id, st.division
 order by sum(pts) desc, (sum(gf)-sum(ga)) desc, sum(gf) desc;
 
 -- TOP SCORERS VIEW

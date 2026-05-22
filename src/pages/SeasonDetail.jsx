@@ -118,7 +118,6 @@ export default function SeasonDetail() {
     setLoading(false)
   }
 
-  // Kelompokkan tim per divisi untuk generate jadwal
   function getTeamsByDivision() {
     const divMap = {}
     teams.forEach(t => {
@@ -129,7 +128,6 @@ export default function SeasonDetail() {
     return divMap
   }
 
-  // Hitung total pekan per divisi (ambil maksimal)
   function getTotalRounds() {
     if (season.type === 'league') {
       const divTeams = getTeamsByDivision()
@@ -153,7 +151,6 @@ export default function SeasonDetail() {
     setShowGenModal(false)
     setGenLoading(true)
 
-    // Untuk champions, generate sekaligus
     if (season.type === 'champions') {
       const teamIds = teams.map(t => t.team_id)
       const groupMap = {}
@@ -199,7 +196,6 @@ export default function SeasonDetail() {
     }
 
     if (season.type === 'league') {
-      // Generate per divisi
       const divTeams = getTeamsByDivision()
       for (const [div, ids] of Object.entries(divTeams)) {
         const divMatches = matches.filter(m => {
@@ -229,7 +225,6 @@ export default function SeasonDetail() {
       return
     }
 
-    // Cup: generate round by round (tanpa divisi)
     const teamIds = teams.map(t => t.team_id)
     const existingRounds = [...new Set(matches.map(m => m.round))].sort((a, b) => a - b)
     const nextRound = existingRounds.length > 0 ? Math.max(...existingRounds) + 1 : 1
@@ -256,13 +251,11 @@ export default function SeasonDetail() {
   }
 
   async function finishSeason() {
-    // Proses promosi/degradasi jika season dengan multi-divisi
     if (season.type === 'league' && (season.num_divisions || 1) > 1) {
       const relCount = season.relegation_count || 0
       const proCount = season.promotion_count || 0
 
       if (relCount > 0 || proCount > 0) {
-        // Ambil standings per divisi
         const { data: standings } = await supabase
           .from('standings')
           .select('*')
@@ -276,33 +269,28 @@ export default function SeasonDetail() {
           byDiv[d].push(r)
         })
 
-        // Sort per divisi: urut berdasarkan pts, gd, gf
         Object.values(byDiv).forEach(arr => {
           arr.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
         })
 
         const updates = []
 
-        // Degradasi: X terbawah dari divisi 1 pindah ke divisi 2, X dari divisi 2 ke 3, dst
         for (let d = 1; d < Object.keys(byDiv).length; d++) {
           const upper = byDiv[d]
           const lower = byDiv[d + 1]
           if (!upper || !lower) continue
 
-          // X terbawah divisi atas → degradasi
           const relegated = upper.slice(-relCount)
           relegated.forEach(r => {
             updates.push({ team_id: r.team_id, division: d + 1 })
           })
 
-          // X teratas divisi bawah → promosi
           const promoted = lower.slice(0, proCount)
           promoted.forEach(r => {
             updates.push({ team_id: r.team_id, division: d })
           })
         }
 
-        // Simpan perubahan division di season_teams
         for (const u of updates) {
           await supabase.from('season_teams').update({ division: u.division }).eq('season_id', id).eq('team_id', u.team_id)
         }
@@ -337,7 +325,6 @@ export default function SeasonDetail() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Back + header */}
       <div>
         <BackButton fallback="/seasons" />
         <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -385,7 +372,6 @@ export default function SeasonDetail() {
         </div>
       </div>
 
-      {/* Tabs */}
       <TabScroller activeTab={tab}>
         <div className="flex gap-1 p-1 rounded-xl w-max" style={{backgroundColor:"#f1f5f9"}}>
           {(() => {
@@ -405,16 +391,8 @@ export default function SeasonDetail() {
         </div>
       </TabScroller>
 
-      {/* Tab content */}
       {tab === 'matches' && (
         <div className="space-y-6">
-          {/* Info helper */}
-          {matches.length > 0 && (
-            <p className="text-xs" style={{color:'#94a3b8'}}>
-              Klik papan skor untuk input hasil, klik nama tim untuk chat
-            </p>
-          )}
-          {/* Kelompokkan berdasarkan divisi jika multi-divisi */}
           {(() => {
             const numDiv = (season.num_divisions || 1)
             if (matches.length === 0) {
@@ -425,90 +403,93 @@ export default function SeasonDetail() {
                 </div>
               )
             }
+
+            const items = []
+
             if (groups.length > 0) {
-              return <>
-                {/* Fase Grup */}
-                {groups.map(g => (
-                  <div key={g} className="card overflow-hidden">
-                    <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                      <span className="font-display font-semibold text-sm text-accent-purple">Grup {g}</span>
-                    </div>
-                    <MatchList matches={matches.filter(m => m.group_id === g)} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                  </div>
-                ))}
-                {/* Fase Knockout (champions) */}
-                {KO_ROUNDS.map(ko => {
-                  const koMatches = matches.filter(m => m.stage === ko.key)
-                  if (koMatches.length === 0) return null
-                  return (
-                    <div key={ko.key} className="card overflow-hidden">
-                      <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                        <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
-                      </div>
-                      <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                    </div>
-                  )
-                })}
-              </>
-            }
-            // Multi-divisi: slide navigation per divisi
-            if (season.type === 'league' && numDiv > 1) {
-              const MatchDivSlider = () => {
-                const [mDiv, setMDiv] = useState(1)
-                const mPrev = () => setMDiv(d => Math.max(1, d - 1))
-                const mNext = () => setMDiv(d => Math.min(numDiv, d + 1))
-                const mDivMatches = matches.filter(m => {
-                  const home = teams.find(t => t.team_id === m.home_team_id)
-                  return home && (home.division || 1) === mDiv
-                })
-                const mDivRounds = [...new Set(mDivMatches.map(m => m.round))].sort((a, b) => a - b)
-                return (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between px-1">
-                      <div className="flex items-center gap-2">
-                        <button onClick={mPrev} disabled={mDiv === 1}
-                          className={`p-1 rounded-lg transition-colors ${mDiv === 1 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-brand-600'}`}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
-                        </button>
-                        <span className="font-display font-semibold text-sm text-brand-600">Divisi {mDiv}</span>
-                        <button onClick={mNext} disabled={mDiv === numDiv}
-                          className={`p-1 rounded-lg transition-colors ${mDiv === numDiv ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-brand-600'}`}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
-                        </button>
-                      </div>
-                      <span className="text-xs text-slate-300 font-mono">{mDiv}/{numDiv}</span>
-                    </div>
-                    {mDivRounds.map(r => (
-                      <div key={r} className="card overflow-hidden">
-                        <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                          <span className="font-display font-semibold text-sm text-brand-600">Pekan {r}</span>
-                        </div>
-                        <MatchList matches={mDivMatches.filter(m => m.round === r)} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                      </div>
-                    ))}
-                    {mDivRounds.length === 0 && (
-                      <div className="card overflow-hidden">
-                        <MatchList matches={mDivMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                      </div>
-                    )}
-                  </div>
+              // Teks petunjuk
+              if (matches.length > 0) {
+                items.push(
+                  <p key="hint" className="text-xs" style={{color:'#94a3b8'}}>
+                    Klik papan skor untuk input hasil, klik nama tim untuk chat
+                  </p>
                 )
               }
-              return <MatchDivSlider />
+              // Fase Grup
+              groups.forEach(g => {
+                const groupMatches = matches.filter(m => m.group_id === g)
+                const gPending = groupMatches.filter(m => m.status !== 'approved').length
+                const gTotal = groupMatches.length
+                items.push(
+                  <div key={`group-${g}`} className="card overflow-hidden">
+                    <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-display font-semibold text-sm text-accent-purple">Grup {g}</span>
+                        <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {gPending} pertandingan tersisa, total {gTotal} pertandingan
+                        </span>
+                      </div>
+                    </div>
+                    <MatchList matches={groupMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
+                  </div>
+                )
+              })
+
+              // Fase Knockout (champions)
+              KO_ROUNDS.forEach(ko => {
+                const koMatches = matches.filter(m => m.stage === ko.key)
+                if (koMatches.length === 0) return
+                const koPending = koMatches.filter(m => m.status !== 'approved').length
+                const koTotal = koMatches.length
+                items.push(
+                  <div key={`ko-${ko.key}`} className="card overflow-hidden">
+                    <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
+                        <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {koPending} pertandingan tersisa, total {koTotal} pertandingan
+                        </span>
+                      </div>
+                    </div>
+                    <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
+                  </div>
+                )
+              })
+            } else if (season.type === 'league' && numDiv > 1) {
+              // Multi-divisi
+              items.push(<MatchDivSlider key="multidiv" matches={matches} teams={teams} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} numDiv={numDiv} />)
+            } else {
+              // Single division / cup
+              if (matches.length > 0) {
+                items.push(
+                  <p key="hint" className="text-xs" style={{color:'#94a3b8'}}>
+                    Klik papan skor untuk input hasil, klik nama tim untuk chat
+                  </p>
+                )
+              }
+              rounds.forEach(r => {
+                const roundMatches = matches.filter(m => m.round === r)
+                const rPending = roundMatches.filter(m => m.status !== 'approved').length
+                const rTotal = roundMatches.length
+                items.push(
+                  <div key={`round-${r}`} className="card overflow-hidden">
+                    <div className="px-5 py-3 flex items-center justify-between" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                      <span className="font-display font-semibold text-sm text-brand-600">
+                        {season.type === 'cup'
+                          ? (KO_ROUNDS.find(k => matches.find(m => m.round === r && m.stage === k.key))?.label || stageLabel(r, rounds.length))
+                          : `Pekan ${r}`}
+                      </span>
+                      <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                        {rPending} pertandingan tersisa, total {rTotal} pertandingan
+                      </span>
+                    </div>
+                    <MatchList matches={roundMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
+                  </div>
+                )
+              })
             }
-            // Single division / cup
-            return rounds.map(r => (
-              <div key={r} className="card overflow-hidden">
-                <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                  <span className="font-display font-semibold text-sm text-brand-600">
-                    {season.type === 'cup'
-                      ? (KO_ROUNDS.find(k => matches.find(m => m.round === r && m.stage === k.key))?.label || stageLabel(r, rounds.length))
-                      : `Pekan ${r}`}
-                  </span>
-                </div>
-                <MatchList matches={matches.filter(m => m.round === r)} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-              </div>
-            ))
+
+            return items
           })()}
         </div>
       )}
@@ -632,6 +613,64 @@ function stageLabel(round, total) {
   return `Babak ${round}`
 }
 
+function MatchDivSlider({ matches, teams, isAdmin, myTeamId, onUpdate, season, numDiv }) {
+  const [mDiv, setMDiv] = useState(1)
+  const mPrev = () => setMDiv(d => Math.max(1, d - 1))
+  const mNext = () => setMDiv(d => Math.min(numDiv, d + 1))
+  const mDivMatches = matches.filter(m => {
+    const home = teams.find(t => t.team_id === m.home_team_id)
+    return home && (home.division || 1) === mDiv
+  })
+  const mDivRounds = [...new Set(mDivMatches.map(m => m.round))].sort((a, b) => a - b)
+  const divPending = mDivMatches.filter(m => m.status !== 'approved').length
+  const divTotal = mDivMatches.length
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <button onClick={mPrev} disabled={mDiv === 1}
+            className={`p-1 rounded-lg transition-colors ${mDiv === 1 ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-brand-600'}`}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <span className="font-display font-semibold text-sm text-brand-600">Divisi {mDiv}</span>
+          <button onClick={mNext} disabled={mDiv === numDiv}
+            className={`p-1 rounded-lg transition-colors ${mDiv === numDiv ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-brand-600'}`}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+            {divPending} pertandingan tersisa, total {divTotal} pertandingan
+          </span>
+        </div>
+        <span className="text-xs text-slate-300 font-mono">{mDiv}/{numDiv}</span>
+      </div>
+      <p className="text-xs" style={{color:'#94a3b8'}}>
+        Klik papan skor untuk input hasil, klik nama tim untuk chat
+      </p>
+      {mDivRounds.map(r => {
+        const roundMatches = mDivMatches.filter(m => m.round === r)
+        const rPending = roundMatches.filter(m => m.status !== 'approved').length
+        const rTotal = roundMatches.length
+        return (
+        <div key={r} className="card overflow-hidden">
+          <div className="px-5 py-3 flex items-center justify-between" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+            <span className="font-display font-semibold text-sm text-brand-600">Pekan {r}</span>
+            <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+              {rPending} pertandingan tersisa, total {rTotal} pertandingan
+            </span>
+          </div>
+          <MatchList matches={roundMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={onUpdate} season={season} />
+        </div>
+      )})}
+      {mDivRounds.length === 0 && (
+        <div className="card overflow-hidden">
+          <MatchList matches={mDivMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={onUpdate} season={season} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function WaIcon({ size = 16 }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
@@ -646,16 +685,15 @@ function MatchList({ matches, isAdmin, myTeamId, onUpdate, season }) {
 
   function canInput(m) {
     if (isAdmin) return true
-    // user bisa input jika timnya terlibat dan belum approved
     return myTeamId &&
       (m.home_team_id === myTeamId || m.away_team_id === myTeamId) &&
       m.status !== 'approved'
   }
 
   function showInputBtn(m) {
-    if (isAdmin) return true // admin bisa edit kapan saja
+    if (isAdmin) return true
     if (m.status === 'scheduled') return canInput(m)
-    if (m.status === 'pending_result') return canInput(m) // user bisa edit selama pending
+    if (m.status === 'pending_result') return canInput(m)
     return false
   }
 
@@ -686,7 +724,6 @@ function MatchList({ matches, isAdmin, myTeamId, onUpdate, season }) {
           <div key={m.id}
             onClick={() => canClick && setScoreModal(m)}
             className={`relative flex items-center justify-center px-4 py-3 gap-x-3 gap-y-1.5 ${canClick ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
-            {/* Home team */}
             <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
               {homeWaLink ? (
                 <a href={homeWaLink} target="_blank" rel="noopener noreferrer"
@@ -704,7 +741,6 @@ function MatchList({ matches, isAdmin, myTeamId, onUpdate, season }) {
               </div>
             </div>
 
-            {/* Score */}
             <div
               className={`font-display font-bold text-sm rounded-lg px-2 py-1 w-12 text-center shrink-0 border ${canClick ? 'cursor-pointer hover:bg-slate-100' : ''} ${m.screenshot_url ? 'border-brand-300' : ''}`} style={{backgroundColor:"#f1f5f9",borderColor:"#e2e8f0"}}
               onClick={e => { if (canClick) { e.stopPropagation(); setScoreModal(m) } else if (m.screenshot_url) { e.stopPropagation(); setImgModal(m.screenshot_url) } }}
@@ -712,7 +748,6 @@ function MatchList({ matches, isAdmin, myTeamId, onUpdate, season }) {
               {m.home_score !== null ? `${m.home_score}–${m.away_score}` : '–'}
             </div>
 
-            {/* Away team */}
             <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-start">
               <div className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-xs font-bold font-display text-brand-600 overflow-hidden shrink-0">
                 {m.away_team?.owner?.avatar_url
@@ -730,7 +765,6 @@ function MatchList({ matches, isAdmin, myTeamId, onUpdate, season }) {
               )}
             </div>
 
-            {/* Status badges — absolute positioned, tidak mempengaruhi layout */}
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
               {m.status === 'pending_result' && isAdmin && (
                 <button onClick={e => { e.stopPropagation(); approveResult(m) }} className="badge-green cursor-pointer p-1 flex items-center">
@@ -846,7 +880,6 @@ function ScoreModal({ match, isAdmin, onClose, onSaved }) {
             </div>
           </div>
 
-          {/* Screenshot upload */}
           <div>
             <label className="text-sm text-slate-500 mb-1.5 block">Bukti Screenshot</label>
             <div
@@ -891,7 +924,6 @@ function StandingsTab({ seasonId, type, season, enrolledTeams }) {
     return () => supabase.removeChannel(channel)
   }, [seasonId])
 
-  // Merge enrolled teams with standings data (show all teams even with 0 stats)
   function buildRows(filterFn) {
     const standingsMap = {}
     data.filter(filterFn || (() => true)).forEach(r => { standingsMap[r.team_id] = r })
@@ -929,7 +961,6 @@ function StandingsTab({ seasonId, type, season, enrolledTeams }) {
     )
   }
 
-  // Multi-divisi league with arrow navigation
   const numDiv = season?.num_divisions || 1
   if (numDiv > 1) {
     const relCount = season?.relegation_count || 0
@@ -942,7 +973,6 @@ function StandingsTab({ seasonId, type, season, enrolledTeams }) {
     return (
       <div className="space-y-4">
         <div className="card overflow-hidden">
-          {/* Header with arrow navigation */}
           <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -978,7 +1008,6 @@ function StandingsTab({ seasonId, type, season, enrolledTeams }) {
     )
   }
 
-  // Single division
   return <div className="card overflow-hidden"><StandingsTable rows={buildRows()} /></div>
 }
 
@@ -986,7 +1015,6 @@ function StandingsTable({ rows, promotionCount, relegationCount, isTopDivision, 
   const promotionLimit = promotionCount && !isTopDivision ? promotionCount : 0
   const relegationLimit = relegationCount && !isBottomDivision ? relegationCount : 0
 
-  // Build rows using an array to avoid JSX expression nesting issues
   const tRows = rows.map((r, i) => {
     const isPromo = promotionLimit > 0 && i < promotionLimit
     const isRel = relegationLimit > 0 && i >= rows.length - relegationLimit
@@ -1020,7 +1048,6 @@ function StandingsTable({ rows, promotionCount, relegationCount, isTopDivision, 
     )
   })
 
-  // Jika tidak ada data
   const emptyRow = rows.length === 0 ? (
     <tr key="empty">
       <td colSpan={8} className="text-center py-8 text-slate-300 text-sm">Belum ada data klasemen</td>
@@ -1097,12 +1124,10 @@ function DrawTab({ seasonId, season, teams, isAdmin, myTeamId, onUpdate, hasMatc
     return counts
   }
 
-  // Hitung kapasitas tiap grup secara merata
-  // misal 10 tim, 3 grup → grup A=4, B=3, C=3
   function getGroupCapacity() {
     const total = teams.length
     const base = Math.floor(total / numGroups)
-    const extra = total % numGroups // grup pertama dapat +1
+    const extra = total % numGroups
     const capacity = {}
     groupLetters.forEach((g, i) => {
       capacity[g] = base + (i < extra ? 1 : 0)
@@ -1116,14 +1141,12 @@ function DrawTab({ seasonId, season, teams, isAdmin, myTeamId, onUpdate, hasMatc
     setDrawingTeamId(teamId)
     const slots = getGroupSlots()
     const capacity = getGroupCapacity()
-    // Buat pool slot yang tersedia (misal A punya 3 slot → ['A','A','A'])
     const pool = []
     groupLetters.forEach(g => {
       const remaining = capacity[g] - (slots[g] || 0)
       for (let i = 0; i < remaining; i++) pool.push(g)
     })
     if (pool.length === 0) { alert('Semua grup sudah penuh!'); setDrawingTeamId(null); return }
-    // Fisher-Yates shuffle lalu ambil pertama
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]]
@@ -1169,7 +1192,6 @@ function DrawTab({ seasonId, season, teams, isAdmin, myTeamId, onUpdate, hasMatc
 
   return (
     <div className="space-y-4">
-      {/* Card undian untuk user */}
       {!isAdmin && myTeamId && enrolledIds.includes(myTeamId) && !hasMatches && (
         <div className="card p-5 flex items-center justify-between gap-4">
           <div>
@@ -1186,7 +1208,6 @@ function DrawTab({ seasonId, season, teams, isAdmin, myTeamId, onUpdate, hasMatc
         </div>
       )}
 
-      {/* Info progress undian untuk admin */}
       {isAdmin && !hasMatches && (
         <div className="card p-4 flex items-center justify-between gap-4">
           <div>
@@ -1204,7 +1225,6 @@ function DrawTab({ seasonId, season, teams, isAdmin, myTeamId, onUpdate, hasMatc
         </div>
       )}
 
-      {/* Daftar tim per grup */}
       {groupLetters.map(g => {
         const groupTeams = teams.filter(t => t.group_id === g)
         return (
@@ -1234,7 +1254,6 @@ function DrawTab({ seasonId, season, teams, isAdmin, myTeamId, onUpdate, hasMatc
         )
       })}
 
-      {/* Tim belum diundi */}
       {teams.filter(t => !t.group_id).length > 0 && (
         <div className="card overflow-hidden">
           <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
@@ -1268,10 +1287,9 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
   const [allTeams,     setAllTeams]     = useState([])
   const [showModal,    setShowModal]    = useState(false)
   const [saving,       setSaving]       = useState(false)
-  // State for modal: per-division team IDs
-  const [divTeams,     setDivTeams]     = useState({}) // { 1: [teamId, ...], 2: [teamId, ...] }
-  const [divTab,       setDivTab]       = useState(1)  // tab di modal
-  const [viewDiv,      setViewDiv]      = useState(1)  // slider tampilan utama
+  const [divTeams,     setDivTeams]     = useState({})
+  const [divTab,       setDivTab]       = useState(1)
+  const [viewDiv,      setViewDiv]      = useState(1)
 
   useEffect(() => {
     supabase.from('teams').select('id,name,owner:profiles!owner_id(avatar_url)').eq('status', 'approved').order('name')
@@ -1283,7 +1301,6 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
   const multiDiv = numDiv > 1
 
   function openModal() {
-    // Reconstruct per-division map from existing data
     const map = {}
     for (let d = 1; d <= numDiv; d++) map[d] = []
     teams.forEach(t => {
@@ -1303,10 +1320,8 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
         copy[d] = [...prev[d]]
       }
       if (copy[div].includes(teamId)) {
-        // Uncheck: remove from this division
         copy[div] = copy[div].filter(id => id !== teamId)
       } else {
-        // Check: add to this division, remove from all others
         for (const d of Object.keys(copy)) {
           copy[d] = copy[d].filter(id => id !== teamId)
         }
@@ -1316,7 +1331,6 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
     })
   }
 
-  // Get all selected team IDs across divisions
   function getAllSelected() {
     const ids = []
     for (const d of Object.keys(divTeams)) {
@@ -1325,7 +1339,6 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
     return ids
   }
 
-  // Teams available in the current tab (not assigned to other divisions)
   function getAvailableForCurrentTab() {
     const current = divTeams[divTab] || []
     const others = []
@@ -1334,7 +1347,6 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
         others.push(...divTeams[d])
       }
     }
-    // All teams minus those already assigned to other divisions
     return allTeams.filter(t => !others.includes(t.id))
   }
 
@@ -1351,7 +1363,6 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
     const currentMap = {}
     teams.forEach(t => { currentMap[t.team_id] = t })
 
-    // Build a set of updated team IDs to track changes
     const allUpdated = new Set()
 
     for (const [div, ids] of Object.entries(divTeams)) {
@@ -1376,11 +1387,9 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
 
   return (
     <>
-      {/* Multi-divisi: slider antar divisi seperti StandingsTab */}
       {multiDiv && (
         <div className="space-y-4">
           <div className="card overflow-hidden">
-            {/* Header dengan navigasi panah */}
             <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1412,7 +1421,6 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
                 <p className="text-[10px] text-accent-yellow/80 mt-1 font-mono">Jadwal sudah di-generate, tim tidak bisa diubah.</p>
               )}
             </div>
-            {/* Daftar tim divisi aktif */}
             {(() => {
               const divTeamList = teams.filter(st => (st.division || 1) === viewDiv)
               if (divTeamList.length === 0) {
@@ -1438,7 +1446,6 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
         </div>
       )}
 
-      {/* Single division: one simple card */}
       {!multiDiv && (
         <div className="card overflow-hidden">
           {isAdmin && !hasMatches && (
@@ -1485,7 +1492,6 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
             {allTeams.length === 0
               ? <div className="p-8 text-center text-slate-300 text-sm">Belum ada tim terdaftar</div>
               : <>
-                  {/* Division tabs */}
                   {multiDiv && (
                     <div className="flex gap-1 p-2 border-b border-slate-200 bg-slate-50">
                       {Array.from({ length: numDiv }, (_, i) => i + 1).map(d => (
@@ -1505,7 +1511,6 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
                     </div>
                   )}
 
-                  {/* Team list for current tab */}
                   <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
                     {getAvailableForCurrentTab().map(t => {
                       const checked = (divTeams[divTab] || []).includes(t.id)
@@ -1553,11 +1558,11 @@ const KO_ROUNDS = [
 
 function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
   const [koMatches, setKoMatches]       = useState([])
-  const [manageModal, setManageModal]   = useState(null) // stage key
+  const [manageModal, setManageModal]   = useState(null)
   const [imgModal, setImgModal]         = useState(null)
   const [generating, setGenerating]     = useState(false)
-  const [genLegModal, setGenLegModal]   = useState(null) // { fromStage, nextStage, nextLabel }
-  const [setupModal, setSetupModal]     = useState(false) // modal setup bracket awal
+  const [genLegModal, setGenLegModal]   = useState(null)
+  const [setupModal, setSetupModal]     = useState(false)
 
   useEffect(() => { fetchKo() }, [seasonId])
 
@@ -1578,24 +1583,20 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
     onUpdate()
   }
 
-  // Generate babak berikutnya dari pemenang babak ini
   async function generateNextRound(currentStage, legs = 1) {
     const currentRound = KO_ROUNDS.find(r => r.key === currentStage)
     if (!currentRound?.next) return
     const nextStage = currentRound.next
 
-    // Ambil semua match babak ini
     const currentMatches = koMatches.filter(m => m.stage === currentStage)
     const allApproved = currentMatches.every(m => m.status === 'approved')
     if (!allApproved) { alert('Semua laga babak ini harus selesai dulu!'); return }
 
-    // Deteksi apakah babak ini 2 leg
     const isTwoLegs = currentMatches.some(m => m.leg_number === 2)
 
     let winners = []
 
     if (isTwoLegs) {
-      // Kelompokkan per round (pair), hitung agregat
       const pairs = {}
       currentMatches.forEach(m => {
         const key = m.round
@@ -1605,16 +1606,13 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
 
       for (const [, pairMatches] of Object.entries(pairs)) {
         if (pairMatches.length < 2) { alert('Ada pasangan yang belum lengkap 2 leg!'); return }
-        // leg_number 1: home_team_id adalah tim A, away_team_id adalah tim B
         const leg1 = pairMatches.find(m => m.leg_number === 1)
         const leg2 = pairMatches.find(m => m.leg_number === 2)
         if (!leg1 || !leg2) { alert('Data leg tidak lengkap!'); return }
 
         const teamA = leg1.home_team_id
         const teamB = leg1.away_team_id
-        // Agregat tim A = skor home di leg1 + skor away di leg2
         const aggA = (leg1.home_score ?? 0) + (leg2.away_score ?? 0)
-        // Agregat tim B = skor away di leg1 + skor home di leg2
         const aggB = (leg1.away_score ?? 0) + (leg2.home_score ?? 0)
 
         if (aggA > aggB) winners.push(teamA)
@@ -1622,7 +1620,6 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
         else { alert(`Agregat imbang di babak ini! Tentukan pemenang secara manual.`); return }
       }
     } else {
-      // 1 leg — pemenang langsung dari skor
       winners = currentMatches.map(m => {
         if (m.home_score > m.away_score) return m.home_team_id
         if (m.away_score > m.home_score) return m.away_team_id
@@ -1633,12 +1630,10 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
 
     if (winners.length < 2) { alert('Tidak cukup pemenang untuk babak berikutnya!'); return }
 
-    // Cek apakah babak berikutnya sudah ada
     const nextExists = koMatches.some(m => m.stage === nextStage)
     if (nextExists) { alert(`Babak ${KO_ROUNDS.find(r => r.key === nextStage)?.label} sudah ada!`); return }
 
     setGenerating(true)
-    // Pasangkan pemenang: 1 vs 2, 3 vs 4, dst
     const matchRows = []
     for (let i = 0; i < winners.length; i += 2) {
       if (winners[i + 1]) {
@@ -1672,19 +1667,17 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
     setGenerating(false)
   }
 
-  // Tentukan babak mana saja yang aktif (ada match atau babak pertama)
   const activeRounds = KO_ROUNDS.filter(r => koMatches.some(m => m.stage === r.key))
-  const firstRound   = activeRounds[0] ?? KO_ROUNDS[2] // default qf jika kosong
+  const firstRound   = activeRounds[0] ?? KO_ROUNDS[2]
 
-  // Untuk bracket tree: kumpulkan semua stage yang ada + stage berikutnya yg kosong
   const bracketRounds = (() => {
     const result = []
     for (const r of KO_ROUNDS) {
       const ms = koMatches.filter(m => m.stage === r.key)
       if (ms.length > 0) result.push(r)
-      else if (result.length > 0) { result.push(r); break } // satu babak kosong berikutnya
+      else if (result.length > 0) { result.push(r); break }
     }
-    if (result.length === 0) result.push(...KO_ROUNDS) // semua babak sebagai placeholder
+    if (result.length === 0) result.push(...KO_ROUNDS)
     return result
   })()
 
@@ -1692,10 +1685,8 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
 
   return (
     <div className="space-y-4">
-      {/* Admin controls */}
       {isAdmin && (
         <div className="flex flex-wrap items-center gap-2">
-          {/* Tombol setup bracket awal — hanya muncul jika belum ada match */}
           {!hasAnyMatch && (
             <button
               onClick={() => setSetupModal(true)}
@@ -1705,7 +1696,6 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
             </button>
           )}
 
-          {/* Generate babak berikutnya */}
           {KO_ROUNDS.map(r => {
             const roundMatches = koMatches.filter(m => m.stage === r.key)
             const allDone = roundMatches.length > 0 && roundMatches.every(m => m.status === 'approved')
@@ -1727,7 +1717,6 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
         </div>
       )}
 
-      {/* Bracket Tree */}
       <BracketTree
         rounds={bracketRounds}
         koMatches={koMatches}
@@ -1787,22 +1776,15 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
 }
 
 // ─── Modal Setup Bracket Awal ────────────────────────────────────────────────
-// Step 1: pilih babak awal + format leg
-// Step 2: pilih tim
-// Step 3: atur pairing manual
 function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
   const teamList = enrolledTeams.map(st => st.team).filter(Boolean)
-
-  // Jumlah tim yang dibutuhkan per babak
   const teamCount = { r32: 32, r16: 16, qf: 8, sf: 4, final: 2 }
-
   const [step, setStep]       = useState(1)
   const [stage, setStage]     = useState(null)
   const [legs, setLegs]       = useState(1)
   const [selected, setSelected] = useState([])
   const [pairs, setPairs]     = useState([])
   const [saving, setSaving]   = useState(false)
-
   const needed = teamCount[stage] ?? 0
   const isExact = selected.length === needed
   const selectedTeams = teamList.filter(t => selected.includes(t.id))
@@ -1907,7 +1889,6 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
     await handleSave(pairs)
   }
 
-  // Step 3: Pairing manual
   if (step === 3) {
     const usedTeamIds = new Set()
     pairs.forEach(p => { usedTeamIds.add(p.homeTeamId); usedTeamIds.add(p.awayTeamId) })
@@ -1991,7 +1972,6 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
 
   return (
     <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
-      {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
         <div>
           <h2 className="font-display font-bold text-base">Setup Bracket</h2>
@@ -2003,7 +1983,6 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
       {step === 1 && (
         <>
           <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
-            {/* Pilih babak awal */}
             <div>
               <p className="text-xs text-slate-500 mb-2 font-medium">Mulai dari babak</p>
               <div className="grid grid-cols-1 gap-1.5">
@@ -2022,32 +2001,19 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
                 ))}
               </div>
             </div>
-
-            {/* Pilih format leg */}
             <div>
               <p className="text-xs text-slate-500 mb-2 font-medium">Format pertandingan</p>
               <div className="flex gap-2">
-                <button
-                  onClick={() => setLegs(1)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
-                    ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
-                >
-                  1 Leg
-                </button>
-                <button
-                  onClick={() => setLegs(2)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
-                    ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
-                >
-                  2 Leg
-                </button>
+                <button onClick={() => setLegs(1)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
+                <button onClick={() => setLegs(2)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
               </div>
               <p className="text-[10px] text-slate-400 mt-1.5">
                 {legs === 1 ? '1 pertandingan per pasangan.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat.'}
               </p>
             </div>
           </div>
-
           <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
             <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
             <button onClick={() => setStep(2)} disabled={!stage} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
@@ -2061,9 +2027,7 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
         <>
           <div className="px-5 pt-3 pb-1 shrink-0">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-500">
-                Pilih tim untuk <span className="font-semibold text-slate-800">{KO_ROUNDS.find(r => r.key === stage)?.label}</span>
-              </p>
+              <p className="text-xs text-slate-500">Pilih tim untuk <span className="font-semibold text-slate-800">{KO_ROUNDS.find(r => r.key === stage)?.label}</span></p>
               <span className={`text-[10px] font-mono ${selected.length > needed ? 'text-accent-red' : selected.length === needed ? 'text-accent-green' : 'text-slate-400'}`}>
                 {selected.length}/{needed}
               </span>
@@ -2123,25 +2087,13 @@ function GenLegModal({ nextLabel, onClose, onConfirm }) {
       <div>
         <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
         <div className="flex gap-2">
-          <button
-            onClick={() => setLegs(1)}
-            className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
-              ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
-          >
-            1 Leg
-          </button>
-          <button
-            onClick={() => setLegs(2)}
-            className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all
-              ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}
-          >
-            2 Leg
-          </button>
+          <button onClick={() => setLegs(1)}
+            className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
+          <button onClick={() => setLegs(2)}
+            className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
         </div>
         <p className="text-[10px] text-slate-400 mt-1.5">
-          {legs === 1
-            ? '1 pertandingan per pasangan. Pemenang langsung lolos.'
-            : '2 pertandingan per pasangan (home & away). Pemenang dari agregat skor.'}
+          {legs === 1 ? '1 pertandingan per pasangan. Pemenang langsung lolos.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat skor.'}
         </p>
       </div>
 
@@ -2156,13 +2108,11 @@ function GenLegModal({ nextLabel, onClose, onConfirm }) {
 }
 
 // ─── Bracket Tree ─────────────────────────────────────────────────────────────
-// â”€â”€â”€ Bracket Tree â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Konstanta ukuran kartu
-const CARD_W      = 180  // lebar kartu
-const CARD_H_1LEG = 72   // tinggi kartu 1 leg
-const CARD_H_2LEG = 120  // tinggi kartu 2 leg (header + leg1 + leg2 + agregat)
-const CARD_GAP    = 20   // jarak antar kartu dalam satu kolom
-const COL_GAP     = 48   // jarak horizontal antar babak
+const CARD_W      = 180
+const CARD_H_1LEG = 72
+const CARD_H_2LEG = 120
+const CARD_GAP    = 20
+const COL_GAP     = 48
 
 function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClick, onManage }) {
   const [scoreModal, setScoreModal] = useState(null)
@@ -2176,15 +2126,11 @@ function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClic
     )
   }
 
-  // Untuk setiap babak, kumpulkan "pair" â€” 1 pair = 1 slot di bagan
-  // Pair diidentifikasi oleh round number. Jika 2 leg, pair punya leg1 & leg2.
   function getPairs(stageKey) {
     const ms = koMatches.filter(m => m.stage === stageKey)
     const isTwoLegs = ms.some(m => m.leg_number === 2)
     if (!isTwoLegs) {
-      return ms
-        .sort((a, b) => (a.round ?? 0) - (b.round ?? 0))
-        .map(m => ({ type: '1leg', leg1: m, leg2: null, pairId: m.id }))
+      return ms.sort((a, b) => (a.round ?? 0) - (b.round ?? 0)).map(m => ({ type: '1leg', leg1: m, leg2: null, pairId: m.id }))
     }
     const roundNums = [...new Set(ms.map(m => m.round))].sort((a, b) => a - b)
     return roundNums.map(rn => {
@@ -2256,7 +2202,6 @@ function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClic
   return (
     <div className="card overflow-hidden">
       <div className="overflow-x-auto custom-scrollbar">
-        {/* Header label babak — ikut scroll bersama SVG */}
         <div className="flex border-b border-slate-200 bg-slate-50/60" style={{ minWidth: svgW + 24 }}>
           {rounds.map((r, ci) => (
             <div key={r.key} style={{ width: CARD_W, marginLeft: ci === 0 ? 12 : COL_GAP, flexShrink: 0 }} className="px-2 py-2 text-center">
@@ -2292,7 +2237,7 @@ function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClic
   )
 }
 
-// â”€â”€â”€ Bracket Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Bracket Card ─────────────────────────────────────────────────────────────
 function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgClick, onScoreClick }) {
   const y = cy - cardH / 2
 
@@ -2314,7 +2259,6 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
 
   const { type, leg1, leg2 } = pair
 
-  // â”€â”€ 1 Leg â”€â”€
   if (type === '1leg') {
     const m = leg1
     const homeWin  = m?.status === 'approved' && m.home_score > m.away_score
@@ -2336,13 +2280,12 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
     )
   }
 
-  // â”€â”€ 2 Leg â”€â”€
   const teamA = leg1?.home_team ?? leg2?.away_team ?? null
   const teamB = leg1?.away_team ?? leg2?.home_team ?? null
   const l1A = leg1?.home_score ?? null
   const l1B = leg1?.away_score ?? null
-  const l2A = leg2?.away_score ?? null   // tim A main away di leg2
-  const l2B = leg2?.home_score ?? null   // tim B main home di leg2
+  const l2A = leg2?.away_score ?? null
+  const l2B = leg2?.home_score ?? null
   const aggA = l1A !== null && l2A !== null ? l1A + l2A : null
   const aggB = l1B !== null && l2B !== null ? l1B + l2B : null
   const aggWinA = aggA !== null && aggB !== null && aggA > aggB
@@ -2355,7 +2298,6 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
         className={`w-full h-full rounded-lg border flex flex-col overflow-hidden text-[11px] font-medium
           ${allDone ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'}`}>
 
-        {/* Header: nama tim A vs tim B */}
         <div className="flex items-center justify-between px-2 py-1 border-b border-slate-200 bg-slate-50 shrink-0">
           <div className="flex items-center gap-1 min-w-0 flex-1">
             <BcAvatar team={teamA} />
@@ -2372,7 +2314,6 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
           </div>
         </div>
 
-        {/* Leg 1 */}
         <BcLegRow label="L1"
           scoreA={l1A} scoreB={l1B}
           done={leg1?.status === 'approved'} pending={leg1?.status === 'pending_result'}
@@ -2383,7 +2324,6 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
           onImgClick={leg1?.screenshot_url ? () => onImgClick(leg1.screenshot_url) : null}
         />
 
-        {/* Leg 2 */}
         <BcLegRow label="L2"
           scoreA={l2A} scoreB={l2B}
           done={leg2?.status === 'approved'} pending={leg2?.status === 'pending_result'}
@@ -2395,7 +2335,6 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
           hasBorderTop
         />
 
-        {/* Agregat */}
         <div className={`flex items-center justify-center gap-1.5 px-2 py-1 border-t border-slate-200 shrink-0 ${allDone ? 'bg-slate-100' : 'bg-slate-50'}`}>
           <span className={`font-display font-bold text-[11px] ${aggWinA ? 'text-accent-green' : 'text-slate-400'}`}>{aggA ?? '-'}</span>
           <span className="text-[9px] text-slate-400 font-mono">agg</span>
@@ -2499,39 +2438,29 @@ function BcActionRow({ m, isAdmin, onApprove, onScore, onDelete }) {
     </div>
   )
 }
-// Modal kelola tim per babak — tambah tim, lalu acak atau atur manual
+
 function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existingMatches, onClose, onSaved }) {
   const teamList = enrolledTeams.map(st => st.team).filter(Boolean)
-
-  // Tim yang sudah ada di laga babak ini
   const usedIds = new Set(existingMatches.flatMap(m => [m.home_team_id, m.away_team_id]))
-
-  // Deteksi apakah babak ini sudah pakai 2 leg
   const existingLegs = existingMatches.some(m => m.leg_number === 2) ? 2 : 1
-
-  // Jumlah tim yang dibutuhkan per fase
   const teamCount = { r32: 32, r16: 16, qf: 8, sf: 4, final: 2 }
   const needed = teamCount[stage] ?? 0
 
-  const [step, setStep]     = useState(1) // 1: pilih tim, 2: atur pairing manual
+  const [step, setStep]       = useState(1)
   const [selected, setSelected] = useState([...usedIds])
-  const [legs, setLegs]     = useState(existingLegs)
-  const [saving, setSaving] = useState(false)
-  // Untuk pairing manual: array of { homeTeamId, awayTeamId }
-  const [pairs, setPairs]   = useState([])
+  const [legs, setLegs]       = useState(existingLegs)
+  const [saving, setSaving]   = useState(false)
+  const [pairs, setPairs]     = useState([])
 
   const isExact = selected.length === needed
   const tooMany = selected.length > needed
   const tooFew  = selected.length < needed
-
-  // Ambil data tim yang dipilih
   const selectedTeams = teamList.filter(t => selected.includes(t.id))
 
   function toggleTeam(id) {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
-  // Init pairing dari selected teams (urut berpasangan)
   function initManualPairs() {
     const newPairs = []
     for (let i = 0; i < selected.length; i += 2) {
@@ -2543,7 +2472,6 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
     setStep(2)
   }
 
-  // Swap home/away dalam satu pair
   function swapPair(idx) {
     setPairs(prev => {
       const copy = [...prev]
@@ -2552,7 +2480,6 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
     })
   }
 
-  // Pindah tim ke pair lain: home slot atau away slot
   function changeHomeTeam(pairIdx, teamId) {
     setPairs(prev => {
       const copy = [...prev]
@@ -2568,7 +2495,6 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
     })
   }
 
-  // Cek apakah semua tim terpakai unik
   function allTeamsUnique() {
     const used = new Set()
     for (const p of pairs) {
@@ -2581,34 +2507,15 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
 
   async function handleSave(pairData) {
     setSaving(true)
-    // Hapus laga lama di babak ini dulu
     await supabase.from('matches').delete().eq('season_id', seasonId).eq('stage', stage)
-
     const matchRows = []
     pairData.forEach((pair, i) => {
       const round = i + 1
-      matchRows.push({
-        season_id: seasonId,
-        home_team_id: pair.homeTeamId,
-        away_team_id: pair.awayTeamId,
-        stage,
-        round,
-        leg_number: 1,
-        status: 'scheduled'
-      })
+      matchRows.push({ season_id: seasonId, home_team_id: pair.homeTeamId, away_team_id: pair.awayTeamId, stage, round, leg_number: 1, status: 'scheduled' })
       if (legs === 2) {
-        matchRows.push({
-          season_id: seasonId,
-          home_team_id: pair.awayTeamId,
-          away_team_id: pair.homeTeamId,
-          stage,
-          round,
-          leg_number: 2,
-          status: 'scheduled'
-        })
+        matchRows.push({ season_id: seasonId, home_team_id: pair.awayTeamId, away_team_id: pair.homeTeamId, stage, round, leg_number: 2, status: 'scheduled' })
       }
     })
-
     const { error } = await supabase.from('matches').insert(matchRows)
     if (error) alert('Gagal: ' + error.message)
     setSaving(false)
@@ -2632,63 +2539,66 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
     await handleSave(pairs)
   }
 
-  // Step 1: Pilih tim + format
-  if (step === 1) {
+  function getTeamObj(id) { return teamList.find(t => t.id === id) }
+  const usedTeamIds = new Set()
+  pairs.forEach(p => { usedTeamIds.add(p.homeTeamId); usedTeamIds.add(p.awayTeamId) })
+  const unpairedTeams = selectedTeams.filter(t => !usedTeamIds.has(t.id))
+
+  if (step === 2) {
     return createPortal(
       <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
         <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
-            <h2 className="font-display font-bold text-base">Kelola Tim — {stageLabel}</h2>
-            <div className="flex items-center gap-3">
-              <span className={`text-sm font-display font-bold tabular-nums ${isExact ? 'text-accent-green' : tooMany ? 'text-accent-red' : 'text-slate-400'}`}>
-                {selected.length}<span className="text-slate-300 font-normal">/{needed}</span>
-              </span>
-              <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setStep(1)} className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100">
+                <ArrowLeft size={16} />
+              </button>
+              <h2 className="font-display font-bold text-base">Atur Pasangan — {stageLabel}</h2>
             </div>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
           </div>
-          {(tooMany || (tooFew && selected.length > 0)) && (
-            <div className={`px-5 py-2 text-[11px] shrink-0 ${tooMany ? 'text-accent-red bg-red-50' : 'text-slate-500 bg-slate-50'}`}>
-              {tooMany ? `Terlalu banyak. ${stageLabel} butuh tepat ${needed} tim.` : `Butuh ${needed - selected.length} tim lagi untuk ${stageLabel}.`}
-            </div>
-          )}
-          <div className="px-5 pt-4 pb-2 shrink-0">
-            <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
-            <div className="flex gap-2">
-              <button onClick={() => setLegs(1)}
-                className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
-              <button onClick={() => setLegs(2)}
-                className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
-            </div>
+          <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50 shrink-0">
+            <p className="text-xs text-slate-500">Atur pasangan tim. Klik tim untuk memilih pengganti. Tap tombol ⇄ untuk swap home/away.</p>
+            {unpairedTeams.length > 0 && <p className="text-[10px] text-accent-red mt-1">⚠ {unpairedTeams.length} tim belum dipasangkan!</p>}
           </div>
-
-          <p className="px-5 pt-2 pb-1 text-xs text-slate-400">Pilih tim yang masuk babak ini, lalu pilih metode:</p>
-          <div className="divide-y divide-slate-100 overflow-y-auto flex-1 mt-1">
-            {teamList.map(t => {
-              const checked = selected.includes(t.id)
+          <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
+            {pairs.map((pair, i) => {
+              const home = getTeamObj(pair.homeTeamId)
+              const away = getTeamObj(pair.awayTeamId)
               return (
-                <button key={t.id} onClick={() => toggleTeam(t.id)}
-                  className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-brand-600 overflow-hidden shrink-0">
-                    {t.owner?.avatar_url ? <img src={t.owner.avatar_url} alt="" /> : t.name[0]}
+                <div key={i} className="px-5 py-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Pair {i + 1}</span>
+                    <button onClick={() => swapPair(i)} className="text-slate-300 hover:text-brand-600 transition-colors text-xs px-2 py-0.5 rounded hover:bg-slate-100">⇄ Swap</button>
                   </div>
-                  <span className="font-medium text-sm flex-1">{t.name}</span>
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-slate-300'}`}>
-                    {checked && <Check size={12} className="text-white" />}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <select value={pair.homeTeamId} onChange={e => changeHomeTeam(i, parseInt(e.target.value))} className="input text-sm w-full appearance-none cursor-pointer">
+                        {selected.map(tid => {
+                          const t = getTeamObj(tid)
+                          const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
+                          return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
+                        })}
+                      </select>
+                    </div>
+                    <span className="text-slate-300 text-xs font-mono shrink-0">vs</span>
+                    <div className="relative flex-1">
+                      <select value={pair.awayTeamId} onChange={e => changeAwayTeam(i, parseInt(e.target.value))} className="input text-sm w-full appearance-none cursor-pointer">
+                        {selected.map(tid => {
+                          const t = getTeamObj(tid)
+                          const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
+                          return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
+                        })}
+                      </select>
+                    </div>
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>
           <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
-            <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
-            <button onClick={handleRandom} disabled={saving || !isExact}
-              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
-              🎲 {saving ? 'Menyimpan...' : 'Acak'}
-            </button>
-            <button onClick={initManualPairs} disabled={!isExact}
-              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
-              <Swords size={14} /> Atur Manual
-            </button>
+            <button onClick={() => handleRandom()} disabled={saving} className="btn-secondary flex-1 text-sm">🎲 {saving ? '...' : 'Acak Ulang'}</button>
+            <button onClick={handleManualSave} disabled={saving || !allTeamsUnique()} className="btn-primary flex-1 text-sm">{saving ? 'Menyimpan...' : 'Simpan Pairing'}</button>
           </div>
         </div>
       </div>,
@@ -2696,88 +2606,55 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
     )
   }
 
-  // Step 2: Pairing manual
-  const usedTeamIds = new Set()
-  pairs.forEach(p => { usedTeamIds.add(p.homeTeamId); usedTeamIds.add(p.awayTeamId) })
-  const unpairedTeams = selectedTeams.filter(t => !usedTeamIds.has(t.id))
-
-  function getTeamObj(id) { return teamList.find(t => t.id === id) }
-
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setStep(1)} className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100">
-              <ArrowLeft size={16} />
-            </button>
-            <h2 className="font-display font-bold text-base">Atur Pasangan — {stageLabel}</h2>
+          <h2 className="font-display font-bold text-base">Kelola Tim — {stageLabel}</h2>
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-display font-bold tabular-nums ${isExact ? 'text-accent-green' : tooMany ? 'text-accent-red' : 'text-slate-400'}`}>
+              {selected.length}<span className="text-slate-300 font-normal">/{needed}</span>
+            </span>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
         </div>
-
-        <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50 shrink-0">
-          <p className="text-xs text-slate-500">Atur pasangan tim. Klik tim untuk memilih pengganti. Tap tombol ⇄ untuk swap home/away.</p>
-          {unpairedTeams.length > 0 && (
-            <p className="text-[10px] text-accent-red mt-1">⚠ {unpairedTeams.length} tim belum dipasangkan!</p>
-          )}
+        {(tooMany || (tooFew && selected.length > 0)) && (
+          <div className={`px-5 py-2 text-[11px] shrink-0 ${tooMany ? 'text-accent-red bg-red-50' : 'text-slate-500 bg-slate-50'}`}>
+            {tooMany ? `Terlalu banyak. ${stageLabel} butuh tepat ${needed} tim.` : `Butuh ${needed - selected.length} tim lagi untuk ${stageLabel}.`}
+          </div>
+        )}
+        <div className="px-5 pt-4 pb-2 shrink-0">
+          <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
+          <div className="flex gap-2">
+            <button onClick={() => setLegs(1)} className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
+            <button onClick={() => setLegs(2)} className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
+          </div>
         </div>
-
-        <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
-          {pairs.map((pair, i) => {
-            const home = getTeamObj(pair.homeTeamId)
-            const away = getTeamObj(pair.awayTeamId)
+        <p className="px-5 pt-2 pb-1 text-xs text-slate-400">Pilih tim yang masuk babak ini, lalu pilih metode:</p>
+        <div className="divide-y divide-slate-100 overflow-y-auto flex-1 mt-1">
+          {teamList.map(t => {
+            const checked = selected.includes(t.id)
             return (
-              <div key={i} className="px-5 py-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Pair {i + 1}</span>
-                  <button onClick={() => swapPair(i)} className="text-slate-300 hover:text-brand-600 transition-colors text-xs px-2 py-0.5 rounded hover:bg-slate-100" title="Swap home/away">
-                    ⇄ Swap
-                  </button>
+              <button key={t.id} onClick={() => toggleTeam(t.id)}
+                className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
+                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-brand-600 overflow-hidden shrink-0">
+                  {t.owner?.avatar_url ? <img src={t.owner.avatar_url} alt="" /> : t.name[0]}
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Home team selector */}
-                  <div className="relative flex-1">
-                    <select value={pair.homeTeamId} onChange={e => changeHomeTeam(i, parseInt(e.target.value))}
-                      className="input text-sm w-full appearance-none cursor-pointer">
-                      {selected.map(tid => {
-                        const t = getTeamObj(tid)
-                        const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
-                        return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
-                      })}
-                    </select>
-                  </div>
-                  <span className="text-slate-300 text-xs font-mono shrink-0">vs</span>
-                  {/* Away team selector */}
-                  <div className="relative flex-1">
-                    <select value={pair.awayTeamId} onChange={e => changeAwayTeam(i, parseInt(e.target.value))}
-                      className="input text-sm w-full appearance-none cursor-pointer">
-                      {selected.map(tid => {
-                        const t = getTeamObj(tid)
-                        const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
-                        return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
-                      })}
-                    </select>
-                  </div>
+                <span className="font-medium text-sm flex-1">{t.name}</span>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-slate-300'}`}>
+                  {checked && <Check size={12} className="text-white" />}
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>
-
         <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
-          <button onClick={() => handleRandom()} disabled={saving}
-            className="btn-secondary flex-1 text-sm flex items-center justify-center gap-1.5">
-            🎲 {saving ? '...' : 'Acak Ulang'}
-          </button>
-          <button onClick={handleManualSave} disabled={saving || !allTeamsUnique()}
-            className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
-            {saving ? 'Menyimpan...' : 'Simpan Pairing'}
-          </button>
+          <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
+          <button onClick={handleRandom} disabled={saving || !isExact} className="btn-primary flex-1 text-sm">🎲 {saving ? 'Menyimpan...' : 'Acak'}</button>
+          <button onClick={initManualPairs} disabled={!isExact} className="btn-primary flex-1 text-sm"><Swords size={14} /> Atur Manual</button>
         </div>
       </div>
     </div>,
     document.body
   )
 }
-

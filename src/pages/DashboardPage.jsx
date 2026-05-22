@@ -1,12 +1,25 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { createPortal } from 'react-dom'
-import { Trophy, Calendar, Clock, Swords, Pencil } from 'lucide-react'
+import { Trophy, Clock } from 'lucide-react'
 
-function WaIcon({ size = 16 }) {
+function FootballGameIcon({ size = 18, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="currentColor" className={className}>
+      {/* Soccer Ball */}
+      <circle cx="32" cy="20" r="12" fill="none" stroke="currentColor" strokeWidth="2"/>
+      <path d="M32 8 L35 14 L41 14 L36 18 L38 24 L32 20 L26 24 L28 18 L23 14 L29 14 Z" fill="currentColor"/>
+      
+      {/* Gamepad */}
+      <path d="M16 36 C12 36 10 38 10 42 L10 48 C10 52 12 54 16 54 L20 54 C22 54 23 53 24 50 L26 44 L38 44 L40 50 C41 53 42 54 44 54 L48 54 C52 54 54 52 54 48 L54 42 C54 38 52 36 48 36 L16 36 Z" fill="currentColor"/>
+      
+      {/* D-pad */}
+      <rect x="18" y="42" width="3" height="8" rx="0.5" fill="white"/>
+      <rect x="16" y="44" width="7" height="3" rx="0.5" fill="white"/>
+      
+      {/* Buttons */}
+      <circle cx="44" cy="44" r="2" fill="white"/>
+      <circle cx="48" cy="46" r="1.5" fill="white"/>
     </svg>
   )
 }
@@ -83,7 +96,6 @@ export default function DashboardPage() {
 
   const cards = [
     { label: 'Total Kompetisi', value: stats.seasons, icon: Trophy,   color: 'brand',  to: '/seasons' },
-    { label: 'Match Dimainkan', value: myTeamId ? `${myDone}/${myTotal}` : stats.matches, icon: Calendar, color: 'green', to: '/seasons' },
     { label: 'Hasil Pending',   value: isAdmin ? stats.pending : (myTeamId ? myPending : stats.pending), icon: Clock, color: 'yellow', to: isAdmin ? '/admin' : '/seasons' },
   ]
 
@@ -177,9 +189,8 @@ export default function DashboardPage() {
         <div className="space-y-3">
           <div>
             <h2 className="font-display font-semibold text-lg flex items-center gap-2 text-ink">
-              <Swords size={18} className="text-brand-600" /> Jadwal Tim Saya
+              <img src="/ball.png?v=2" alt="ball" className="w-5 h-5 object-contain bg-transparent" /> Jadwal Tim Saya
             </h2>
-            <p className="text-xs text-ink-faint mt-0.5">Klik papan skor untuk input hasil, klik nama tim untuk chat</p>
           </div>
           {myMatches.length === 0 ? (
             <div className="card p-8 text-center text-ink-faint text-sm">Belum ada jadwal</div>
@@ -380,6 +391,9 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick, s
     ))
   }
 
+  const total   = sMatches.length
+  const pending = sMatches.filter(m => m.status !== 'approved').length
+
   return (
     <div className="space-y-3">
       {/* Header slider */}
@@ -396,9 +410,14 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick, s
             disabled={idx === seasons.length - 1}
             className="w-8 h-8 rounded-lg bg-surface-muted hover:bg-surface-border disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-lg text-ink"
           >›</button>
+          <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+            {pending} pertandingan tersisa, total {total} pertandingan
+          </span>
         </div>
         <span className="text-xs text-ink-faint shrink-0">{idx + 1} / {seasons.length}</span>
       </div>
+
+      <p className="text-xs text-ink-faint">Klik papan skor untuk input hasil, klik nama tim untuk chat</p>
 
       {renderContent()}
     </div>
