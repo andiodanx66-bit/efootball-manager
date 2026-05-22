@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Trophy, ChevronRight, Star, Swords, Plus, Trash2, Pencil, Check, X, Archive, Play, Layers, ChevronDown } from 'lucide-react'
 import { createPortal } from 'react-dom'
@@ -202,6 +202,23 @@ export default function SeasonsPage() {
   )
 }
 
+function compressImage(file, maxSize = 256, quality = 0.8) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1)
+      canvas.width  = img.width  * ratio
+      canvas.height = img.height * ratio
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(url)
+      canvas.toBlob(resolve, 'image/webp', quality)
+    }
+    img.src = url
+  })
+}
+
 function SeasonCard({ season, editMode, onUpdate }) {
   const Icon = typeIcon[season.type] || Trophy
   const [renaming,      setRenaming]      = useState(false)
@@ -211,6 +228,11 @@ function SeasonCard({ season, editMode, onUpdate }) {
   const [saving,        setSaving]        = useState(false)
   const [statusSaving,  setStatusSaving]  = useState(false)
   const [deleteModal,   setDeleteModal]   = useState(false)
+  const [editingLogo,   setEditingLogo]   = useState(false)
+  const [logoFile,      setLogoFile]      = useState(null)
+  const [logoPreview,   setLogoPreview]   = useState(null)
+  const [logoSaving,    setLogoSaving]    = useState(false)
+  const logoFileRef = useRef()
 
   async function handleRename() {
     if (!newName.trim() || newName.trim() === season.name) { setRenaming(false); return }
@@ -242,18 +264,115 @@ function SeasonCard({ season, editMode, onUpdate }) {
     onUpdate()
   }
 
+  function handleLogoFileChange(e) {
+    const f = e.target.files[0]
+    if (!f) return
+    setLogoFile(f)
+    setLogoPreview(URL.createObjectURL(f))
+  }
+
+  async function handleLogoSave() {
+    if (!logoFile) { setEditingLogo(false); return }
+    setLogoSaving(true)
+    try {
+      const compressed = await compressImage(logoFile)
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.webp`
+      const { error: uploadError } = await supabase.storage
+        .from('competition')
+        .upload(fileName, compressed, { contentType: 'image/webp' })
+      if (uploadError) throw uploadError
+      const { data } = supabase.storage.from('competition').getPublicUrl(fileName)
+      const logo_url = `${data.publicUrl}?t=${Date.now()}`
+      await supabase.from('seasons').update({ logo_url }).eq('id', season.id)
+      onUpdate()
+      setEditingLogo(false)
+      setLogoFile(null)
+      setLogoPreview(null)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLogoSaving(false)
+    }
+  }
+
   const iconBg =
     season.type === 'champions' ? 'bg-accent-purple/20 text-accent-purple' :
     season.type === 'cup'       ? 'bg-accent-yellow/20 text-accent-yellow' :
                                   'bg-brand-500/20 text-brand-400'
 
+  function renderIcon() {
+    if (editMode && editingLogo) {
+      const currentPreview = logoPreview || season.logo_url
+      return (
+        <div className="flex flex-col items-center gap-2 mt-0.5">
+          <div
+            className="w-14 h-14 rounded-xl bg-brand-50 border-2 border-dashed border-brand-300 flex items-center justify-center overflow-hidden cursor-pointer hover:border-brand-500 transition-colors"
+            onClick={() => logoFileRef.current.click()}
+          >
+            {currentPreview
+              ? <img src={currentPreview} alt="logo" className="w-full h-full object-cover" />
+              : <Trophy size={28} className="text-brand-300" />}
+          </div>
+          <div className="flex gap-1">
+            <button
+              onClick={handleLogoSave}
+              disabled={logoSaving || !logoFile}
+              className="text-accent-green hover:text-accent-green/70 disabled:opacity-50"
+            >
+              <Check size={14} />
+            </button>
+            <button
+              onClick={() => { setEditingLogo(false); setLogoFile(null); setLogoPreview(null); }}
+              className="text-ink-faint hover:text-ink"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <input ref={logoFileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoFileChange} />
+        </div>
+      )
+    }
+
+    if (season.logo_url) {
+      return (
+        <div className="flex flex-col items-center gap-1 mt-0.5">
+          <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
+            <img src={season.logo_url} alt={season.name} className="w-full h-full object-cover" />
+          </div>
+          {editMode && (
+            <button
+              onClick={() => setEditingLogo(true)}
+              className="text-[10px] text-ink-faint hover:text-brand-600 transition-colors"
+            >
+              Ganti
+            </button>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex flex-col items-center gap-1 mt-0.5">
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
+          <Icon size={20} />
+        </div>
+        {editMode && (
+          <button
+            onClick={() => setEditingLogo(true)}
+            className="text-[10px] text-ink-faint hover:text-brand-600 transition-colors"
+          >
+            Tambah
+          </button>
+        )}
+      </div>
+    )
+  }
+
   if (editMode) {
     return (
       <>
         <div className="card-hover p-4 flex items-start gap-3 border-accent-yellow/20">
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${iconBg}`}>
-            <Icon size={20} />
-          </div>
+          {renderIcon()}
 
           <div className="flex-1 min-w-0 space-y-1.5">
             {/* Nama */}
@@ -359,9 +478,7 @@ function SeasonCard({ season, editMode, onUpdate }) {
   return (
     <>
       <Link to={`/seasons/${season.id}`} className="card-hover p-4 flex items-center gap-3 block">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
-          <Icon size={20} />
-        </div>
+        {renderIcon()}
         <div className="flex-1 min-w-0">
           <div className="font-display font-semibold text-base truncate text-ink">{season.name}</div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -375,18 +492,18 @@ function SeasonCard({ season, editMode, onUpdate }) {
 
       {deleteModal && createPortal(
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setDeleteModal(false)}>
-          <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
-            <h2 className="font-display font-bold text-lg mb-2 text-ink">Hapus Kompetisi</h2>
-            <p className="text-ink-muted text-sm mb-1">Yakin ingin menghapus <span className="text-ink font-semibold">{season.name}</span>?</p>
-            <p className="text-ink-faint text-xs mb-5">Semua jadwal, hasil, tim terdaftar, dan klasemen akan ikut terhapus permanen.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteModal(false)} className="btn-secondary flex-1 text-sm">Batal</button>
-              <button onClick={handleDelete} className="btn-danger flex-1 text-sm">Hapus</button>
+            <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
+              <h2 className="font-display font-bold text-lg mb-2 text-ink">Hapus Kompetisi</h2>
+              <p className="text-ink-muted text-sm mb-1">Yakin ingin menghapus <span className="text-ink font-semibold">{season.name}</span>?</p>
+              <p className="text-ink-faint text-xs mb-5">Semua jadwal, hasil, tim terdaftar, dan klasemen akan ikut terhapus permanen.</p>
+              <div className="flex gap-3">
+                <button onClick={() => setDeleteModal(false)} className="btn-secondary flex-1 text-sm">Batal</button>
+                <button onClick={handleDelete} className="btn-danger flex-1 text-sm">Hapus</button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body
+        )}
     </>
   )
 }

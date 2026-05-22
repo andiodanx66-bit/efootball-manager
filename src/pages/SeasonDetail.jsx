@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { createPortal } from 'react-dom'
 import { Trophy, Users, Calendar, BarChart2, Play, Settings, ArrowLeft, Star, Swords, Plus, XCircle, Clock, Pencil, Check, Trash2 } from 'lucide-react'
@@ -6,6 +6,14 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { generateRoundRobin, generateKnockout, generateGroupStage } from '../utils/scheduler'
 import BackButton from '../components/layout/BackButton'
+
+const KO_ROUNDS = [
+  { key: 'r32',   label: '32 Besar',       next: 'r16'   },
+  { key: 'r16',   label: '16 Besar',       next: 'qf'    },
+  { key: 'qf',    label: 'Perempat Final', next: 'sf'    },
+  { key: 'sf',    label: 'Semi Final',     next: 'final' },
+  { key: 'final', label: 'Final',          next: null    },
+]
 
 // Scrollable tab container — hide scrollbar, support mouse/touch drag
 function TabScroller({ children, activeTab }) {
@@ -328,12 +336,19 @@ export default function SeasonDetail() {
       <div>
         <BackButton fallback="/seasons" />
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="section-title">{season.name}</h1>
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <p className="text-sm" style={{color:'#94a3b8'}}>{teams.length} tim terdaftar · {matches.length} pertandingan</p>
+          <div className="flex items-center gap-4">
+            {season.logo_url ? (
+              <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0">
+                <img src={season.logo_url} alt={season.name} className="w-full h-full object-cover" />
+              </div>
+            ) : null}
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="section-title">{season.name}</h1>
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-sm" style={{color:'#94a3b8'}}>{teams.length} tim terdaftar · {matches.length} pertandingan</p>
+              </div>
             </div>
           </div>
           {isAdmin && (
@@ -439,21 +454,66 @@ export default function SeasonDetail() {
               KO_ROUNDS.forEach(ko => {
                 const koMatches = matches.filter(m => m.stage === ko.key)
                 if (koMatches.length === 0) return
-                const koPending = koMatches.filter(m => m.status !== 'approved').length
-                const koTotal = koMatches.length
-                items.push(
-                  <div key={`ko-${ko.key}`} className="card overflow-hidden">
-                    <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                      <div className="flex items-center justify-between">
-                        <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
-                        <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-                          {koPending} pertandingan tersisa, total {koTotal} pertandingan
-                        </span>
+                const isFinal = ko.key === 'final'
+                const finalSeriesType = season?.final_series_type || 'single'
+                
+                if (isFinal && finalSeriesType === 'best_of') {
+                  const roundNums = [...new Set(koMatches.map(m => m.round))].sort((a, b) => a - b)
+                  roundNums.forEach(rn => {
+                    const seriesMatches = koMatches
+                      .filter(m => m.round === rn)
+                      .sort((a, b) => (a.leg_number ?? 0) - (b.leg_number ?? 0))
+                    
+                    let winsA = 0, winsB = 0
+                    seriesMatches.forEach(g => {
+                      if (g.status === 'approved' && g.home_score !== null && g.away_score !== null) {
+                        if (g.home_score > g.away_score) {
+                          if (g.home_team_id === (seriesMatches[0]?.home_team_id)) winsA++
+                          else winsB++
+                        } else if (g.away_score > g.home_score) {
+                          if (g.away_team_id === (seriesMatches[0]?.home_team_id)) winsA++
+                          else winsB++
+                        }
+                      }
+                    })
+                    
+                    const seriesPending = seriesMatches.filter(m => m.status !== 'approved').length
+                    const seriesTotal = seriesMatches.length
+                    
+                    items.push(
+                      <div key={`ko-${ko.key}-${rn}`} className="card overflow-hidden">
+                        <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
+                              <span className="text-xs text-slate-400 font-mono">({winsA}-{winsB})</span>
+                            </div>
+                            <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                              {seriesPending} pertandingan tersisa, total {seriesTotal} pertandingan
+                            </span>
+                          </div>
+                        </div>
+                        <MatchList matches={seriesMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                       </div>
+                    )
+                  })
+                } else {
+                  const koPending = koMatches.filter(m => m.status !== 'approved').length
+                  const koTotal = koMatches.length
+                  items.push(
+                    <div key={`ko-${ko.key}`} className="card overflow-hidden">
+                      <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
+                          <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            {koPending} pertandingan tersisa, total {koTotal} pertandingan
+                          </span>
+                        </div>
+                      </div>
+                      <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                     </div>
-                    <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                  </div>
-                )
+                  )
+                }
               })
             } else if (season.type === 'league' && numDiv > 1) {
               // Multi-divisi
@@ -467,26 +527,90 @@ export default function SeasonDetail() {
                   </p>
                 )
               }
-              rounds.forEach(r => {
-                const roundMatches = matches.filter(m => m.round === r)
-                const rPending = roundMatches.filter(m => m.status !== 'approved').length
-                const rTotal = roundMatches.length
-                items.push(
-                  <div key={`round-${r}`} className="card overflow-hidden">
-                    <div className="px-5 py-3 flex items-center justify-between" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                      <span className="font-display font-semibold text-sm text-brand-600">
-                        {season.type === 'cup'
-                          ? (KO_ROUNDS.find(k => matches.find(m => m.round === r && m.stage === k.key))?.label || stageLabel(r, rounds.length))
-                          : `Pekan ${r}`}
-                      </span>
-                      <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-                        {rPending} pertandingan tersisa, total {rTotal} pertandingan
-                      </span>
+              
+              if (season.type === 'cup') {
+                KO_ROUNDS.forEach(ko => {
+                  const koMatches = matches.filter(m => m.stage === ko.key)
+                  if (koMatches.length === 0) return
+                  const isFinal = ko.key === 'final'
+                  const finalSeriesType = season?.final_series_type || 'single'
+                  
+                  if (isFinal && finalSeriesType === 'best_of') {
+                    const roundNums = [...new Set(koMatches.map(m => m.round))].sort((a, b) => a - b)
+                    roundNums.forEach(rn => {
+                      const seriesMatches = koMatches
+                        .filter(m => m.round === rn)
+                        .sort((a, b) => (a.leg_number ?? 0) - (b.leg_number ?? 0))
+                      
+                      let winsA = 0, winsB = 0
+                      seriesMatches.forEach(g => {
+                        if (g.status === 'approved' && g.home_score !== null && g.away_score !== null) {
+                          if (g.home_score > g.away_score) {
+                            if (g.home_team_id === (seriesMatches[0]?.home_team_id)) winsA++
+                            else winsB++
+                          } else if (g.away_score > g.home_score) {
+                            if (g.away_team_id === (seriesMatches[0]?.home_team_id)) winsA++
+                            else winsB++
+                          }
+                        }
+                      })
+                      
+                      const seriesPending = seriesMatches.filter(m => m.status !== 'approved').length
+                      const seriesTotal = seriesMatches.length
+                      
+                      items.push(
+                        <div key={`cup-${ko.key}-${rn}`} className="card overflow-hidden">
+                          <div className="px-5 py-3 flex items-center justify-between" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                            <div className="flex items-center gap-2">
+                              <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
+                              <span className="text-xs text-slate-400 font-mono">({winsA}-{winsB})</span>
+                            </div>
+                            <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                              {seriesPending} pertandingan tersisa, total {seriesTotal} pertandingan
+                            </span>
+                          </div>
+                          <MatchList matches={seriesMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
+                        </div>
+                      )
+                    })
+                  } else {
+                    const koPending = koMatches.filter(m => m.status !== 'approved').length
+                    const koTotal = koMatches.length
+                    items.push(
+                      <div key={`cup-${ko.key}`} className="card overflow-hidden">
+                        <div className="px-5 py-3 flex items-center justify-between" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                          <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
+                          <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            {koPending} pertandingan tersisa, total {koTotal} pertandingan
+                          </span>
+                        </div>
+                        <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
+                      </div>
+                    )
+                  }
+                })
+              } else {
+                rounds.forEach(r => {
+                  const roundMatches = matches.filter(m => m.round === r)
+                  const rPending = roundMatches.filter(m => m.status !== 'approved').length
+                  const rTotal = roundMatches.length
+                  items.push(
+                    <div key={`round-${r}`} className="card overflow-hidden">
+                      <div className="px-5 py-3 flex items-center justify-between" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                        <span className="font-display font-semibold text-sm text-brand-600">
+                          {season.type === 'cup'
+                            ? (KO_ROUNDS.find(k => matches.find(m => m.round === r && m.stage === k.key))?.label || stageLabel(r, rounds.length))
+                            : `Pekan ${r}`}
+                        </span>
+                        <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          {rPending} pertandingan tersisa, total {rTotal} pertandingan
+                        </span>
+                      </div>
+                      <MatchList matches={roundMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                     </div>
-                    <MatchList matches={roundMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                  </div>
-                )
-              })
+                  )
+                })
+              }
             }
 
             return items
@@ -1548,14 +1672,6 @@ function TeamsTab({ seasonId, season, teams, isAdmin, onUpdate, hasMatches }) {
 
 // ─── Knockout Tab ────────────────────────────────────────────────────────────
 
-const KO_ROUNDS = [
-  { key: 'r32',   label: '32 Besar',       next: 'r16'   },
-  { key: 'r16',   label: '16 Besar',       next: 'qf'    },
-  { key: 'qf',    label: 'Perempat Final', next: 'sf'    },
-  { key: 'sf',    label: 'Semi Final',     next: 'final' },
-  { key: 'final', label: 'Final',          next: null    },
-]
-
 function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
   const [koMatches, setKoMatches]       = useState([])
   const [manageModal, setManageModal]   = useState(null)
@@ -1635,28 +1751,49 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
 
     setGenerating(true)
     const matchRows = []
+    
+    const isFinal = nextStage === 'final'
+    const finalSeriesType = season?.final_series_type || 'single'
+    const finalBestOf = season?.final_best_of || 1
+    
     for (let i = 0; i < winners.length; i += 2) {
       if (winners[i + 1]) {
         const pairIndex = Math.floor(i / 2) + 1
-        matchRows.push({
-          season_id: seasonId,
-          home_team_id: winners[i],
-          away_team_id: winners[i + 1],
-          stage: nextStage,
-          round: pairIndex,
-          leg_number: 1,
-          status: 'scheduled'
-        })
-        if (legs === 2) {
+        
+        if (isFinal && finalSeriesType === 'best_of') {
+          for (let gameNum = 1; gameNum <= finalBestOf; gameNum++) {
+            const isEven = gameNum % 2 === 0
+            matchRows.push({
+              season_id: seasonId,
+              home_team_id: isEven ? winners[i + 1] : winners[i],
+              away_team_id: isEven ? winners[i] : winners[i + 1],
+              stage: nextStage,
+              round: pairIndex,
+              leg_number: gameNum,
+              status: 'scheduled'
+            })
+          }
+        } else {
           matchRows.push({
             season_id: seasonId,
-            home_team_id: winners[i + 1],
-            away_team_id: winners[i],
+            home_team_id: winners[i],
+            away_team_id: winners[i + 1],
             stage: nextStage,
             round: pairIndex,
-            leg_number: 2,
+            leg_number: 1,
             status: 'scheduled'
           })
+          if (legs === 2) {
+            matchRows.push({
+              season_id: seasonId,
+              home_team_id: winners[i + 1],
+              away_team_id: winners[i],
+              stage: nextStage,
+              round: pairIndex,
+              leg_number: 2,
+              status: 'scheduled'
+            })
+          }
         }
       }
     }
@@ -1725,6 +1862,7 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
         onUpdate={fetchKo}
         onImgClick={setImgModal}
         onManage={isAdmin ? (stageKey) => setManageModal(stageKey) : null}
+        season={season}
       />
 
       {setupModal && createPortal(
@@ -1732,6 +1870,7 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
           <SetupBracketModal
             enrolledTeams={enrolledTeams}
             seasonId={seasonId}
+            season={season}
             onClose={() => setSetupModal(false)}
             onSaved={() => { setSetupModal(false); fetchKo(); onUpdate() }}
           />
@@ -1742,6 +1881,7 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
       {manageModal && (
         <ManageKoTeamsModal
           seasonId={seasonId}
+          season={season}
           stage={manageModal}
           stageLabel={KO_ROUNDS.find(r => r.key === manageModal)?.label}
           enrolledTeams={enrolledTeams}
@@ -1755,6 +1895,8 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setGenLegModal(null)}>
           <GenLegModal
             nextLabel={genLegModal.nextLabel}
+            nextStage={genLegModal.nextStage}
+            season={season}
             onClose={() => setGenLegModal(null)}
             onConfirm={legs => {
               setGenLegModal(null)
@@ -1776,7 +1918,7 @@ function KnockoutTab({ seasonId, season, enrolledTeams, isAdmin, onUpdate }) {
 }
 
 // ─── Modal Setup Bracket Awal ────────────────────────────────────────────────
-function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
+function SetupBracketModal({ enrolledTeams, seasonId, season, onClose, onSaved }) {
   const teamList = enrolledTeams.map(st => st.team).filter(Boolean)
   const teamCount = { r32: 32, r16: 16, qf: 8, sf: 4, final: 2 }
   const [step, setStep]       = useState(1)
@@ -1788,6 +1930,10 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
   const needed = teamCount[stage] ?? 0
   const isExact = selected.length === needed
   const selectedTeams = teamList.filter(t => selected.includes(t.id))
+  
+  const isFinal = stage === 'final'
+  const finalSeriesType = season?.final_series_type || 'single'
+  const finalBestOf = season?.final_best_of || 1
 
   function toggleTeam(id) {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -1844,25 +1990,41 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
     const matchRows = []
     pairData.forEach((pair, i) => {
       const round = i + 1
-      matchRows.push({
-        season_id: seasonId,
-        home_team_id: pair.homeTeamId,
-        away_team_id: pair.awayTeamId,
-        stage,
-        round,
-        leg_number: 1,
-        status: 'scheduled'
-      })
-      if (legs === 2) {
+      
+      if (isFinal && finalSeriesType === 'best_of') {
+        for (let gameNum = 1; gameNum <= finalBestOf; gameNum++) {
+          const isEven = gameNum % 2 === 0
+          matchRows.push({
+            season_id: seasonId,
+            home_team_id: isEven ? pair.awayTeamId : pair.homeTeamId,
+            away_team_id: isEven ? pair.homeTeamId : pair.awayTeamId,
+            stage,
+            round,
+            leg_number: gameNum,
+            status: 'scheduled'
+          })
+        }
+      } else {
         matchRows.push({
           season_id: seasonId,
-          home_team_id: pair.awayTeamId,
-          away_team_id: pair.homeTeamId,
+          home_team_id: pair.homeTeamId,
+          away_team_id: pair.awayTeamId,
           stage,
           round,
-          leg_number: 2,
+          leg_number: 1,
           status: 'scheduled'
         })
+        if (legs === 2) {
+          matchRows.push({
+            season_id: seasonId,
+            home_team_id: pair.awayTeamId,
+            away_team_id: pair.homeTeamId,
+            stage,
+            round,
+            leg_number: 2,
+            status: 'scheduled'
+          })
+        }
       }
     })
 
@@ -2001,18 +2163,28 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
                 ))}
               </div>
             </div>
-            <div>
-              <p className="text-xs text-slate-500 mb-2 font-medium">Format pertandingan</p>
-              <div className="flex gap-2">
-                <button onClick={() => setLegs(1)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
-                <button onClick={() => setLegs(2)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
+            {isFinal && finalSeriesType === 'best_of' ? (
+              <div className="p-4 rounded-xl" style={{backgroundColor:'#f8fafc', border:'1px solid #e2e8f0'}}>
+                <p className="text-xs text-slate-500 mb-2 font-medium">Format Final</p>
+                <div className="space-y-1">
+                  <p className="text-sm text-slate-600 font-semibold">Best of {finalBestOf}</p>
+                  <p className="text-[10px] text-slate-400">Seri {finalBestOf} pertandingan, pemenang terbanyak</p>
+                </div>
               </div>
-              <p className="text-[10px] text-slate-400 mt-1.5">
-                {legs === 1 ? '1 pertandingan per pasangan.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat.'}
-              </p>
-            </div>
+            ) : (
+              <div>
+                <p className="text-xs text-slate-500 mb-2 font-medium">Format pertandingan</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setLegs(1)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
+                  <button onClick={() => setLegs(2)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1.5">
+                  {legs === 1 ? '1 pertandingan per pasangan.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat.'}
+                </p>
+              </div>
+            )}
           </div>
           <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
             <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
@@ -2075,8 +2247,17 @@ function SetupBracketModal({ enrolledTeams, seasonId, onClose, onSaved }) {
 }
 
 // ─── Modal pilih format leg saat generate babak berikutnya ───────────────────
-function GenLegModal({ nextLabel, onClose, onConfirm }) {
+function GenLegModal({ nextLabel, nextStage, season, onClose, onConfirm }) {
   const [legs, setLegs] = useState(1)
+  
+  const isFinal = nextStage === 'final'
+  const finalSeriesType = season?.final_series_type || 'single'
+  const finalBestOf = season?.final_best_of || 1
+  
+  const handleConfirm = () => {
+    onConfirm(legs)
+  }
+  
   return (
     <div className="card w-full max-w-xs animate-slide-in p-5 space-y-4" onClick={e => e.stopPropagation()}>
       <div className="flex items-center justify-between">
@@ -2084,22 +2265,32 @@ function GenLegModal({ nextLabel, onClose, onConfirm }) {
         <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={17} /></button>
       </div>
 
-      <div>
-        <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
-        <div className="flex gap-2">
-          <button onClick={() => setLegs(1)}
-            className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
-          <button onClick={() => setLegs(2)}
-            className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
+      {isFinal && finalSeriesType === 'best_of' ? (
+        <div className="p-4 rounded-xl" style={{backgroundColor:'#f8fafc', border:'1px solid #e2e8f0'}}>
+          <p className="text-xs text-slate-500 mb-2 font-medium">Format Final</p>
+          <div className="space-y-1">
+            <p className="text-sm text-slate-600 font-semibold">Best of {finalBestOf}</p>
+            <p className="text-[10px] text-slate-400">Seri {finalBestOf} pertandingan, pemenang terbanyak</p>
+          </div>
         </div>
-        <p className="text-[10px] text-slate-400 mt-1.5">
-          {legs === 1 ? '1 pertandingan per pasangan. Pemenang langsung lolos.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat skor.'}
-        </p>
-      </div>
+      ) : (
+        <div>
+          <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
+          <div className="flex gap-2">
+            <button onClick={() => setLegs(1)}
+              className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
+            <button onClick={() => setLegs(2)}
+              className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1.5">
+            {legs === 1 ? '1 pertandingan per pasangan. Pemenang langsung lolos.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat skor.'}
+          </p>
+        </div>
+      )}
 
       <div className="flex gap-2 pt-1">
         <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
-        <button onClick={() => onConfirm(legs)} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
+        <button onClick={handleConfirm} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
           <Calendar size={13} /> Generate
         </button>
       </div>
@@ -2111,10 +2302,12 @@ function GenLegModal({ nextLabel, onClose, onConfirm }) {
 const CARD_W      = 180
 const CARD_H_1LEG = 72
 const CARD_H_2LEG = 120
+const CARD_H_BESTOF_BASE = 72
+const CARD_H_PER_GAME = 40
 const CARD_GAP    = 20
 const COL_GAP     = 48
 
-function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClick, onManage }) {
+function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClick, onManage, season }) {
   const [scoreModal, setScoreModal] = useState(null)
 
   if (rounds.length === 0) {
@@ -2128,6 +2321,20 @@ function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClic
 
   function getPairs(stageKey) {
     const ms = koMatches.filter(m => m.stage === stageKey)
+    const isFinal = stageKey === 'final'
+    const finalSeriesType = season?.final_series_type || 'single'
+    const isBestOf = isFinal && finalSeriesType === 'best_of'
+    
+    if (isBestOf) {
+      const roundNums = [...new Set(ms.map(m => m.round))].sort((a, b) => a - b)
+      return roundNums.map(rn => {
+        const games = ms
+          .filter(m => m.round === rn)
+          .sort((a, b) => (a.leg_number ?? 0) - (b.leg_number ?? 0))
+        return { type: 'best_of', games, pairId: `${stageKey}-${rn}` }
+      })
+    }
+    
     const isTwoLegs = ms.some(m => m.leg_number === 2)
     if (!isTwoLegs) {
       return ms.sort((a, b) => (a.round ?? 0) - (b.round ?? 0)).map(m => ({ type: '1leg', leg1: m, leg2: null, pairId: m.id }))
@@ -2142,6 +2349,14 @@ function BracketTree({ rounds, koMatches, isAdmin, onDelete, onUpdate, onImgClic
 
   function cardH(stageKey) {
     const ms = koMatches.filter(m => m.stage === stageKey)
+    const isFinal = stageKey === 'final'
+    const finalSeriesType = season?.final_series_type || 'single'
+    
+    if (isFinal && finalSeriesType === 'best_of') {
+      const maxGameNum = Math.max(...ms.map(m => m.leg_number ?? 1), 1)
+      return CARD_H_BESTOF_BASE + (maxGameNum - 1) * CARD_H_PER_GAME
+    }
+    
     return ms.some(m => m.leg_number === 2) ? CARD_H_2LEG : CARD_H_1LEG
   }
 
@@ -2257,9 +2472,95 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
     )
   }
 
-  const { type, leg1, leg2 } = pair
+  const { type } = pair
+
+  if (type === 'best_of') {
+    const { games } = pair
+    if (!games || games.length === 0) {
+      return (
+        <foreignObject x={x} y={y} width={CARD_W} height={cardH}>
+          <div xmlns="http://www.w3.org/1999/xhtml"
+            className="w-full h-full rounded-lg border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center">
+            <span className="text-[10px] text-slate-300 font-mono">TBD</span>
+          </div>
+        </foreignObject>
+      )
+    }
+
+    const teamA = games[0]?.home_team ?? null
+    const teamB = games[0]?.away_team ?? null
+    
+    let winsA = 0, winsB = 0
+    games.forEach(g => {
+      if (g.status === 'approved' && g.home_score !== null && g.away_score !== null) {
+        if (g.home_score > g.away_score) {
+          if (g.home_team_id === (games[0]?.home_team_id)) winsA++
+          else winsB++
+        } else if (g.away_score > g.home_score) {
+          if (g.away_team_id === (games[0]?.home_team_id)) winsA++
+          else winsB++
+        }
+      }
+    })
+
+    const allDone = games.every(g => g.status === 'approved')
+    const seriesWinA = winsA > winsB && allDone
+    const seriesWinB = winsB > winsA && allDone
+
+    return (
+      <foreignObject x={x} y={y} width={CARD_W} height={cardH}>
+        <div xmlns="http://www.w3.org/1999/xhtml"
+          className={`w-full h-full rounded-lg border flex flex-col overflow-hidden text-[11px] font-medium
+            ${allDone ? 'border-slate-200 bg-slate-50' : 'border-slate-200 bg-white'}`}>
+
+          <div className="flex items-center justify-between px-2 py-1 border-b border-slate-200 bg-slate-50 shrink-0">
+            <div className="flex items-center gap-1 min-w-0 flex-1">
+              <BcAvatar team={teamA} />
+              <span className={`truncate text-[10px] font-semibold leading-tight ${seriesWinA ? 'text-brand-700' : 'text-slate-500'}`}>
+                {teamA?.name ?? 'TBD'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0 mx-1">
+              <span className={`font-display font-bold text-[12px] ${seriesWinA ? 'text-accent-green' : 'text-slate-400'}`}>{winsA}</span>
+              <span className="text-[9px] text-slate-400 font-mono">-</span>
+              <span className={`font-display font-bold text-[12px] ${seriesWinB ? 'text-accent-green' : 'text-slate-400'}`}>{winsB}</span>
+            </div>
+            <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+              <span className={`truncate text-[10px] font-semibold leading-tight text-right ${seriesWinB ? 'text-brand-700' : 'text-slate-500'}`}>
+                {teamB?.name ?? 'TBD'}
+              </span>
+              <BcAvatar team={teamB} />
+            </div>
+          </div>
+
+          {games.map((g, i) => {
+            const isHomeA = g.home_team_id === games[0]?.home_team_id
+            const scoreA = isHomeA ? g.home_score : g.away_score
+            const scoreB = isHomeA ? g.away_score : g.home_score
+            const gameWinA = g.status === 'approved' && scoreA !== null && scoreB !== null && scoreA > scoreB
+            const gameWinB = g.status === 'approved' && scoreA !== null && scoreB !== null && scoreB > scoreA
+            
+            return (
+              <BcLegRow key={g.id} label={`G${g.leg_number ?? i + 1}`}
+                scoreA={scoreA} scoreB={scoreB}
+                done={g.status === 'approved'} pending={g.status === 'pending_result'}
+                isAdmin={isAdmin}
+                onApprove={() => approve(g.id)}
+                onScore={() => onScoreClick(g)}
+                onDelete={() => onDelete(g.id)}
+                onImgClick={g?.screenshot_url ? () => onImgClick(g.screenshot_url) : null}
+                hasBorderTop={i > 0}
+                highlightA={gameWinA} highlightB={gameWinB}
+              />
+            )
+          })}
+        </div>
+      </foreignObject>
+    )
+  }
 
   if (type === '1leg') {
+    const { leg1 } = pair
     const m = leg1
     const homeWin  = m?.status === 'approved' && m.home_score > m.away_score
     const awayWin  = m?.status === 'approved' && m.away_score > m.home_score
@@ -2280,6 +2581,7 @@ function BracketCard({ x, cy, cardH, pair, isAdmin, onDelete, onUpdate, onImgCli
     )
   }
 
+  const { leg1, leg2 } = pair
   const teamA = leg1?.home_team ?? leg2?.away_team ?? null
   const teamB = leg1?.away_team ?? leg2?.home_team ?? null
   const l1A = leg1?.home_score ?? null
@@ -2372,7 +2674,7 @@ function BcTeamRow({ team, score, isWinner, onImgClick, hasBorder }) {
   )
 }
 
-function BcLegRow({ label, scoreA, scoreB, done, pending, isAdmin, onApprove, onScore, onDelete, onImgClick, hasBorderTop }) {
+function BcLegRow({ label, scoreA, scoreB, done, pending, isAdmin, onApprove, onScore, onDelete, onImgClick, hasBorderTop, highlightA, highlightB }) {
   return (
     <div className={`flex items-center gap-1 px-1.5 py-1 shrink-0 ${hasBorderTop ? 'border-t border-slate-100' : ''} ${done ? 'bg-slate-50' : ''}`}>
       <span className="text-[9px] text-slate-400 font-mono w-4 shrink-0">{label}</span>
@@ -2380,9 +2682,9 @@ function BcLegRow({ label, scoreA, scoreB, done, pending, isAdmin, onApprove, on
         onClick={onImgClick ?? undefined} style={{ cursor: onImgClick ? 'pointer' : 'default' }}>
         {scoreA !== null && scoreB !== null
           ? <>
-              <span className={`font-display font-bold text-[11px] w-4 text-center ${scoreA > scoreB ? 'text-brand-700' : 'text-slate-400'}`}>{scoreA}</span>
+              <span className={`font-display font-bold text-[11px] w-4 text-center ${highlightA ? 'text-accent-green' : scoreA > scoreB ? 'text-brand-700' : 'text-slate-400'}`}>{scoreA}</span>
               <span className="text-slate-300 text-[9px]">-</span>
-              <span className={`font-display font-bold text-[11px] w-4 text-center ${scoreB > scoreA ? 'text-brand-700' : 'text-slate-400'}`}>{scoreB}</span>
+              <span className={`font-display font-bold text-[11px] w-4 text-center ${highlightB ? 'text-accent-green' : scoreB > scoreA ? 'text-brand-700' : 'text-slate-400'}`}>{scoreB}</span>
             </>
           : <span className="text-slate-300 text-[9px] font-mono">vs</span>
         }
@@ -2439,7 +2741,7 @@ function BcActionRow({ m, isAdmin, onApprove, onScore, onDelete }) {
   )
 }
 
-function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existingMatches, onClose, onSaved }) {
+function ManageKoTeamsModal({ seasonId, season, stage, stageLabel, enrolledTeams, existingMatches, onClose, onSaved }) {
   const teamList = enrolledTeams.map(st => st.team).filter(Boolean)
   const usedIds = new Set(existingMatches.flatMap(m => [m.home_team_id, m.away_team_id]))
   const existingLegs = existingMatches.some(m => m.leg_number === 2) ? 2 : 1
@@ -2456,6 +2758,10 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
   const tooMany = selected.length > needed
   const tooFew  = selected.length < needed
   const selectedTeams = teamList.filter(t => selected.includes(t.id))
+  
+  const isFinal = stage === 'final'
+  const finalSeriesType = season?.final_series_type || 'single'
+  const finalBestOf = season?.final_best_of || 1
 
   function toggleTeam(id) {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -2511,9 +2817,25 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
     const matchRows = []
     pairData.forEach((pair, i) => {
       const round = i + 1
-      matchRows.push({ season_id: seasonId, home_team_id: pair.homeTeamId, away_team_id: pair.awayTeamId, stage, round, leg_number: 1, status: 'scheduled' })
-      if (legs === 2) {
-        matchRows.push({ season_id: seasonId, home_team_id: pair.awayTeamId, away_team_id: pair.homeTeamId, stage, round, leg_number: 2, status: 'scheduled' })
+      
+      if (isFinal && finalSeriesType === 'best_of') {
+        for (let gameNum = 1; gameNum <= finalBestOf; gameNum++) {
+          const isEven = gameNum % 2 === 0
+          matchRows.push({
+            season_id: seasonId,
+            home_team_id: isEven ? pair.awayTeamId : pair.homeTeamId,
+            away_team_id: isEven ? pair.homeTeamId : pair.awayTeamId,
+            stage,
+            round,
+            leg_number: gameNum,
+            status: 'scheduled'
+          })
+        }
+      } else {
+        matchRows.push({ season_id: seasonId, home_team_id: pair.homeTeamId, away_team_id: pair.awayTeamId, stage, round, leg_number: 1, status: 'scheduled' })
+        if (legs === 2) {
+          matchRows.push({ season_id: seasonId, home_team_id: pair.awayTeamId, away_team_id: pair.homeTeamId, stage, round, leg_number: 2, status: 'scheduled' })
+        }
       }
     })
     const { error } = await supabase.from('matches').insert(matchRows)
@@ -2623,13 +2945,25 @@ function ManageKoTeamsModal({ seasonId, stage, stageLabel, enrolledTeams, existi
             {tooMany ? `Terlalu banyak. ${stageLabel} butuh tepat ${needed} tim.` : `Butuh ${needed - selected.length} tim lagi untuk ${stageLabel}.`}
           </div>
         )}
-        <div className="px-5 pt-4 pb-2 shrink-0">
-          <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
-          <div className="flex gap-2">
-            <button onClick={() => setLegs(1)} className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
-            <button onClick={() => setLegs(2)} className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
+        {isFinal && finalSeriesType === 'best_of' ? (
+          <div className="px-5 pt-4 pb-2 shrink-0">
+            <div className="p-4 rounded-xl" style={{backgroundColor:'#f8fafc', border:'1px solid #e2e8f0'}}>
+              <p className="text-xs text-slate-500 mb-2 font-medium">Format Final</p>
+              <div className="space-y-1">
+                <p className="text-sm text-slate-600 font-semibold">Best of {finalBestOf}</p>
+                <p className="text-[10px] text-slate-400">Seri {finalBestOf} pertandingan, pemenang terbanyak</p>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="px-5 pt-4 pb-2 shrink-0">
+            <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
+            <div className="flex gap-2">
+              <button onClick={() => setLegs(1)} className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
+              <button onClick={() => setLegs(2)} className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
+            </div>
+          </div>
+        )}
         <p className="px-5 pt-2 pb-1 text-xs text-slate-400">Pilih tim yang masuk babak ini, lalu pilih metode:</p>
         <div className="divide-y divide-slate-100 overflow-y-auto flex-1 mt-1">
           {teamList.map(t => {

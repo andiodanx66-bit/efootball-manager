@@ -1,13 +1,33 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Trophy, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 
+function compressImage(file, maxSize = 256, quality = 0.8) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1)
+      canvas.width  = img.width  * ratio
+      canvas.height = img.height * ratio
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(url)
+      canvas.toBlob(resolve, 'image/webp', quality)
+    }
+    img.src = url
+  })
+}
+
 export default function SeasonFormModal({ season, onClose, onSaved }) {
   const { user, isAdmin } = useAuth()
-  const [form,    setForm]    = useState({ name: '', type: 'league', legs: 1, num_groups: 4, num_divisions: 1, promotion_count: 0, relegation_count: 0, season_group: '' })
+  const [form,    setForm]    = useState({ name: '', type: 'league', legs: 1, num_groups: 4, num_divisions: 1, promotion_count: 0, relegation_count: 0, season_group: '', final_series_type: 'single', final_best_of: 1, logo_url: '' })
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
+  const [preview, setPreview] = useState(null)
+  const [file, setFile] = useState(null)
+  const fileRef = useRef()
 
   const isEdit = Boolean(season?.id)
 
@@ -23,12 +43,25 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
         relegation_count: season.relegation_count || 0,
         status:          season.status          || 'active',
         season_group:    season.season_group    || '',
+        final_series_type: season.final_series_type || 'single',
+        final_best_of:   season.final_best_of   || 1,
+        logo_url:        season.logo_url        || '',
       })
+      setPreview(season.logo_url || null)
     } else {
-      setForm({ name: '', type: 'league', legs: 1, num_groups: 4, num_divisions: 1, promotion_count: 0, relegation_count: 0, season_group: '' })
+      setForm({ name: '', type: 'league', legs: 1, num_groups: 4, num_divisions: 1, promotion_count: 0, relegation_count: 0, season_group: '', final_series_type: 'single', final_best_of: 1, logo_url: '' })
+      setPreview(null)
     }
+    setFile(null)
     setError('')
   }, [season])
+
+  function handleFileChange(e) {
+    const f = e.target.files[0]
+    if (!f) return
+    setFile(f)
+    setPreview(URL.createObjectURL(f))
+  }
 
   function update(k) {
     return e => {
@@ -53,6 +86,19 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
     setLoading(true)
     setError('')
     try {
+      let logo_url = form.logo_url
+
+      if (file) {
+        const compressed = await compressImage(file)
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.webp`
+        const { error: uploadError } = await supabase.storage
+          .from('competition')
+          .upload(fileName, compressed, { contentType: 'image/webp' })
+        if (uploadError) throw uploadError
+        const { data } = supabase.storage.from('competition').getPublicUrl(fileName)
+        logo_url = `${data.publicUrl}?t=${Date.now()}`
+      }
+
       const payload = {
         name:            form.name.trim(),
         type:            form.type,
@@ -62,6 +108,9 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
         promotion_count: form.type === 'league' && form.num_divisions > 1 ? parseInt(form.promotion_count) : 0,
         relegation_count: form.type === 'league' && form.num_divisions > 1 ? parseInt(form.relegation_count) : 0,
         season_group:    form.season_group.trim() || null,
+        final_series_type: (form.type === 'cup' || form.type === 'champions') ? form.final_series_type : 'single',
+        final_best_of:   (form.type === 'cup' || form.type === 'champions') ? parseInt(form.final_best_of) : 1,
+        logo_url:        logo_url || null,
       }
       if (isEdit) {
         const { error: err } = await supabase.from('seasons').update({
@@ -109,6 +158,21 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex flex-col items-center gap-2">
+            <div
+              className="w-24 h-24 rounded-2xl bg-brand-50 border-2 border-dashed border-brand-300 flex items-center justify-center overflow-hidden cursor-pointer hover:border-brand-500 transition-colors"
+              onClick={() => fileRef.current.click()}
+            >
+              {preview
+                ? <img src={preview} alt="logo kompetisi" className="w-full h-full object-cover" />
+                : <Trophy size={40} className="text-brand-300" />}
+            </div>
+            <button type="button" onClick={() => fileRef.current.click()} className="text-xs text-ink-faint hover:text-ink-muted transition-colors">
+              {preview ? 'Ganti logo' : 'Upload logo kompetisi'}
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          </div>
+
           <div>
             <label className="text-sm font-medium mb-1.5 block" style={{color:'#64748b'}}>Nama Kompetisi</label>
             <input required value={form.name} onChange={update('name')} className="input" placeholder="Liga Musim 1" />
@@ -245,6 +309,61 @@ export default function SeasonFormModal({ season, onClose, onSaved }) {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {(form.type === 'cup' || form.type === 'champions') && (
+            <div>
+              <label className="text-sm font-medium mb-1.5 block" style={{color:'#64748b'}}>Format Final</label>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                {[
+                  { key: 'single', label: 'Single Match', desc: '1 pertandingan' },
+                  { key: 'best_of', label: 'Best of X', desc: 'Seri pertandingan' },
+                ].map(t => (
+                  <button key={t.key} type="button"
+                    onClick={() => setForm(p => ({ ...p, final_series_type: t.key }))}
+                    className="rounded-xl p-3 text-left transition-all"
+                    style={form.final_series_type === t.key
+                      ? {border:'1px solid #2563eb', backgroundColor:'#eff6ff', color:'#1d4ed8'}
+                      : {border:'1px solid #e2e8f0', backgroundColor:'#f8fafc', color:'#64748b'}
+                    }
+                  >
+                    <div className="font-display font-semibold text-sm">{t.label}</div>
+                    <div className="text-xs mt-0.5 opacity-70">{t.desc}</div>
+                  </button>
+                ))}
+              </div>
+              
+              {form.final_series_type === 'best_of' && (
+                <div>
+                  <label className="text-xs font-medium mb-1.5 block" style={{color:'#64748b'}}>Jumlah Pertandingan di Final</label>
+                  <div className="grid grid-cols-5 gap-2 mb-2">
+                    {[3, 5, 7, 9].map(n => (
+                      <button key={n} type="button"
+                        onClick={() => setForm(p => ({ ...p, final_best_of: n }))}
+                        className="rounded-xl p-2 text-center transition-all"
+                        style={parseInt(form.final_best_of) === n
+                          ? {border:'1px solid #2563eb', backgroundColor:'#eff6ff', color:'#1d4ed8'}
+                          : {border:'1px solid #e2e8f0', backgroundColor:'#f8fafc', color:'#64748b'}
+                        }
+                      >
+                        <div className="font-display font-semibold text-sm">Bo{n}</div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs" style={{color:'#94a3b8'}}>Custom:</label>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      value={form.final_best_of} 
+                      onChange={update('final_best_of')}
+                      className="input text-sm w-20"
+                    />
+                    <span className="text-xs" style={{color:'#64748b'}}>pertandingan</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
