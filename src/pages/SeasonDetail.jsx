@@ -422,28 +422,26 @@ export default function SeasonDetail() {
             const items = []
 
             if (groups.length > 0) {
-              // Teks petunjuk
+              // Teks petunjuk + info tersisa
               if (matches.length > 0) {
+                const totalPending = matches.filter(m => m.status !== 'approved').length
+                const totalAll = matches.length
                 items.push(
-                  <p key="hint" className="text-xs" style={{color:'#94a3b8'}}>
-                    Klik papan skor untuk input hasil, klik nama tim untuk chat
-                  </p>
+                  <div key="hint" className="flex flex-col gap-1">
+                    <span className="text-[11px] font-medium text-accent-green">
+                      {totalPending} pertandingan tersisa, total {totalAll} pertandingan
+                    </span>
+                    <p className="text-xs" style={{color:'#94a3b8'}}>Klik papan skor untuk input hasil, klik nama tim untuk chat</p>
+                  </div>
                 )
               }
               // Fase Grup
               groups.forEach(g => {
                 const groupMatches = matches.filter(m => m.group_id === g)
-                const gPending = groupMatches.filter(m => m.status !== 'approved').length
-                const gTotal = groupMatches.length
                 items.push(
                   <div key={`group-${g}`} className="card overflow-hidden">
                     <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                      <div className="flex items-center justify-between">
-                        <span className="font-display font-semibold text-sm text-accent-purple">Grup {g}</span>
-                        <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-                          {gPending} pertandingan tersisa, total {gTotal} pertandingan
-                        </span>
-                      </div>
+                      <span className="font-display font-semibold text-sm text-accent-purple">Grup {g}</span>
                     </div>
                     <MatchList matches={groupMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                   </div>
@@ -483,14 +481,9 @@ export default function SeasonDetail() {
                     items.push(
                       <div key={`ko-${ko.key}-${rn}`} className="card overflow-hidden">
                         <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
-                              <span className="text-xs text-slate-400 font-mono">({winsA}-{winsB})</span>
-                            </div>
-                            <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-                              {seriesPending} pertandingan tersisa, total {seriesTotal} pertandingan
-                            </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
+                            <span className="text-xs text-slate-400 font-mono">({winsA}-{winsB})</span>
                           </div>
                         </div>
                         <MatchList matches={seriesMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
@@ -505,7 +498,7 @@ export default function SeasonDetail() {
                       <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
                         <div className="flex items-center justify-between">
                           <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
-                          <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          <span className="text-[11px] font-medium text-accent-green">
                             {koPending} pertandingan tersisa, total {koTotal} pertandingan
                           </span>
                         </div>
@@ -521,10 +514,15 @@ export default function SeasonDetail() {
             } else {
               // Single division / cup
               if (matches.length > 0) {
+                const totalPending = matches.filter(m => m.status !== 'approved').length
+                const totalAll = matches.length
                 items.push(
-                  <p key="hint" className="text-xs" style={{color:'#94a3b8'}}>
-                    Klik papan skor untuk input hasil, klik nama tim untuk chat
-                  </p>
+                  <div key="hint" className="flex flex-col gap-1">
+                    <span className="text-[11px] font-medium text-accent-green">
+                      {totalPending} pertandingan tersisa, total {totalAll} pertandingan
+                    </span>
+                    <p className="text-xs" style={{color:'#94a3b8'}}>Klik papan skor untuk input hasil, klik nama tim untuk chat</p>
+                  </div>
                 )
               }
               
@@ -555,34 +553,21 @@ export default function SeasonDetail() {
                         }
                       })
                       
-                      const seriesPending = seriesMatches.filter(m => m.status !== 'approved').length
-                      const seriesTotal = seriesMatches.length
-                      
                       items.push(
                         <div key={`cup-${ko.key}-${rn}`} className="card overflow-hidden">
-                          <div className="px-5 py-3 flex items-center justify-between" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                            <div className="flex items-center gap-2">
-                              <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
-                              <span className="text-xs text-slate-400 font-mono">({winsA}-{winsB})</span>
-                            </div>
-                            <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-                              {seriesPending} pertandingan tersisa, total {seriesTotal} pertandingan
-                            </span>
+                          <div className="px-5 py-3 flex items-center gap-2" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                            <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
+                            <span className="text-xs text-slate-400 font-mono">({winsA}-{winsB})</span>
                           </div>
                           <MatchList matches={seriesMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                         </div>
                       )
                     })
                   } else {
-                    const koPending = koMatches.filter(m => m.status !== 'approved').length
-                    const koTotal = koMatches.length
                     items.push(
                       <div key={`cup-${ko.key}`} className="card overflow-hidden">
-                        <div className="px-5 py-3 flex items-center justify-between" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                        <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
                           <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
-                          <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-                            {koPending} pertandingan tersisa, total {koTotal} pertandingan
-                          </span>
                         </div>
                         <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                       </div>
@@ -592,18 +577,13 @@ export default function SeasonDetail() {
               } else {
                 rounds.forEach(r => {
                   const roundMatches = matches.filter(m => m.round === r)
-                  const rPending = roundMatches.filter(m => m.status !== 'approved').length
-                  const rTotal = roundMatches.length
                   items.push(
                     <div key={`round-${r}`} className="card overflow-hidden">
-                      <div className="px-5 py-3 flex items-center justify-between" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                      <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
                         <span className="font-display font-semibold text-sm text-brand-600">
                           {season.type === 'cup'
                             ? (KO_ROUNDS.find(k => matches.find(m => m.round === r && m.stage === k.key))?.label || stageLabel(r, rounds.length))
                             : `Pekan ${r}`}
-                        </span>
-                        <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-                          {rPending} pertandingan tersisa, total {rTotal} pertandingan
                         </span>
                       </div>
                       <MatchList matches={roundMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
@@ -762,26 +742,23 @@ function MatchDivSlider({ matches, teams, isAdmin, myTeamId, onUpdate, season, n
             className={`p-1 rounded-lg transition-colors ${mDiv === numDiv ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-brand-600'}`}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
-          <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-            {divPending} pertandingan tersisa, total {divTotal} pertandingan
-          </span>
         </div>
         <span className="text-xs text-slate-300 font-mono">{mDiv}/{numDiv}</span>
       </div>
-      <p className="text-xs" style={{color:'#94a3b8'}}>
-        Klik papan skor untuk input hasil, klik nama tim untuk chat
-      </p>
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] font-medium text-accent-green">
+          {divPending} pertandingan tersisa, total {divTotal} pertandingan
+        </span>
+        <p className="text-xs" style={{color:'#94a3b8'}}>
+          Klik papan skor untuk input hasil, klik nama tim untuk chat
+        </p>
+      </div>
       {mDivRounds.map(r => {
         const roundMatches = mDivMatches.filter(m => m.round === r)
-        const rPending = roundMatches.filter(m => m.status !== 'approved').length
-        const rTotal = roundMatches.length
         return (
         <div key={r} className="card overflow-hidden">
-          <div className="px-5 py-3 flex items-center justify-between" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+          <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
             <span className="font-display font-semibold text-sm text-brand-600">Pekan {r}</span>
-            <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-              {rPending} pertandingan tersisa, total {rTotal} pertandingan
-            </span>
           </div>
           <MatchList matches={roundMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={onUpdate} season={season} />
         </div>

@@ -410,14 +410,16 @@ function SeasonSlider({ matches, myTeamId, canInput, onScoreClick, onImgClick, s
             disabled={idx === seasons.length - 1}
             className="w-8 h-8 rounded-lg bg-surface-muted hover:bg-surface-border disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors shrink-0 text-lg text-ink"
           >›</button>
-          <span className="text-[11px] font-medium text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full whitespace-nowrap">
-            {pending} pertandingan tersisa, total {total} pertandingan
-          </span>
         </div>
         <span className="text-xs text-ink-faint shrink-0">{idx + 1} / {seasons.length}</span>
       </div>
 
-      <p className="text-xs text-ink-faint">Klik papan skor untuk input hasil, klik nama tim untuk chat</p>
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] font-medium text-accent-green">
+          {pending} pertandingan tersisa, total {total} pertandingan
+        </span>
+        <p className="text-xs text-ink-faint">Klik papan skor untuk input hasil, klik nama tim untuk chat</p>
+      </div>
 
       {renderContent()}
     </div>

@@ -25,6 +25,8 @@ export default function TeamDetail() {
       supabase.from('match_history')
         .select('*')
         .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
+        .not('home_score', 'is', null)
+        .not('away_score', 'is', null)
         .order('approved_at', { ascending: false })
     ])
     setTeam(t)
@@ -110,65 +112,65 @@ export default function TeamDetail() {
             </div>
             
             {/* Content */}
-            <div className="p-5">
+            <div className="p-4">
               {/* Top Row: Main Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-3 gap-2 mb-3">
                 {/* Total Matches */}
-                <div className="text-center p-4 rounded-xl" style={{backgroundColor:'#f1f5f9'}}>
-                  <div className="text-xs font-medium mb-2" style={{color:'#64748b'}}>PERTANDINGAN</div>
-                  <div className="text-4xl font-display font-bold text-brand-600">{stats.played}</div>
+                <div className="text-center p-3 rounded-xl min-w-0" style={{backgroundColor:'#f1f5f9'}}>
+                  <div className="text-[10px] font-semibold mb-1.5 leading-tight" style={{color:'#64748b'}}>MAIN</div>
+                  <div className="text-3xl font-display font-bold text-brand-600">{stats.played}</div>
                 </div>
                 
                 {/* Win Rate */}
-                <div className="text-center p-4 rounded-xl" style={{backgroundColor:'rgba(34,197,94,0.08)'}}>
-                  <div className="text-xs font-medium mb-2" style={{color:'#64748b'}}>WIN RATE</div>
-                  <div className="text-4xl font-display font-bold text-accent-green">{winRate}%</div>
+                <div className="text-center p-3 rounded-xl min-w-0" style={{backgroundColor:'rgba(34,197,94,0.08)'}}>
+                  <div className="text-[10px] font-semibold mb-1.5 leading-tight" style={{color:'#64748b'}}>WIN RATE</div>
+                  <div className="text-3xl font-display font-bold text-accent-green">{winRate}%</div>
                 </div>
                 
                 {/* Goal Difference */}
-                <div className="text-center p-4 rounded-xl" style={{backgroundColor: goalDiff >= 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)'}}>
-                  <div className="text-xs font-medium mb-2" style={{color:'#64748b'}}>SELISIH GOL</div>
-                  <div className={`text-4xl font-display font-bold ${goalDiff > 0 ? 'text-accent-green' : goalDiff < 0 ? 'text-accent-red' : 'text-slate-400'}`}>
+                <div className="text-center p-3 rounded-xl min-w-0" style={{backgroundColor: goalDiff >= 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)'}}>
+                  <div className="text-[10px] font-semibold mb-1.5 leading-tight" style={{color:'#64748b'}}>+/- GOL</div>
+                  <div className={`text-3xl font-display font-bold ${goalDiff > 0 ? 'text-accent-green' : goalDiff < 0 ? 'text-accent-red' : 'text-slate-400'}`}>
                     {goalDiff > 0 ? '+' : ''}{goalDiff}
                   </div>
                 </div>
               </div>
               
               {/* Bottom Row: Detailed Stats */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2">
                 {/* Form */}
-                <div className="p-4 rounded-xl border" style={{borderColor:'#e2e8f0', backgroundColor:'#ffffff'}}>
-                  <div className="text-xs font-medium mb-3" style={{color:'#64748b'}}>FORM</div>
+                <div className="p-3 rounded-xl border" style={{borderColor:'#e2e8f0', backgroundColor:'#ffffff'}}>
+                  <div className="text-[10px] font-semibold mb-2.5" style={{color:'#64748b'}}>FORM</div>
                   <div className="flex items-center justify-between">
                     <div className="text-center flex-1">
-                      <div className="text-2xl font-display font-bold text-accent-green">{stats.won}</div>
-                      <div className="text-[10px] mt-1" style={{color:'#94a3b8'}}>Menang</div>
+                      <div className="text-xl font-display font-bold text-accent-green">{stats.won}</div>
+                      <div className="text-[10px] mt-0.5" style={{color:'#94a3b8'}}>Menang</div>
                     </div>
-                    <div className="w-px h-8" style={{backgroundColor:'#e2e8f0'}}></div>
+                    <div className="w-px h-7" style={{backgroundColor:'#e2e8f0'}}></div>
                     <div className="text-center flex-1">
-                      <div className="text-2xl font-display font-bold" style={{color:'#94a3b8'}}>{stats.drawn}</div>
-                      <div className="text-[10px] mt-1" style={{color:'#94a3b8'}}>Seri</div>
+                      <div className="text-xl font-display font-bold" style={{color:'#94a3b8'}}>{stats.drawn}</div>
+                      <div className="text-[10px] mt-0.5" style={{color:'#94a3b8'}}>Seri</div>
                     </div>
-                    <div className="w-px h-8" style={{backgroundColor:'#e2e8f0'}}></div>
+                    <div className="w-px h-7" style={{backgroundColor:'#e2e8f0'}}></div>
                     <div className="text-center flex-1">
-                      <div className="text-2xl font-display font-bold text-accent-red">{stats.lost}</div>
-                      <div className="text-[10px] mt-1" style={{color:'#94a3b8'}}>Kalah</div>
+                      <div className="text-xl font-display font-bold text-accent-red">{stats.lost}</div>
+                      <div className="text-[10px] mt-0.5" style={{color:'#94a3b8'}}>Kalah</div>
                     </div>
                   </div>
                 </div>
                 
                 {/* Goals */}
-                <div className="p-4 rounded-xl border" style={{borderColor:'#e2e8f0', backgroundColor:'#ffffff'}}>
-                  <div className="text-xs font-medium mb-3" style={{color:'#64748b'}}>GOL</div>
-                  <div className="flex items-center justify-center gap-3">
+                <div className="p-3 rounded-xl border" style={{borderColor:'#e2e8f0', backgroundColor:'#ffffff'}}>
+                  <div className="text-[10px] font-semibold mb-2.5" style={{color:'#64748b'}}>GOL</div>
+                  <div className="flex items-center justify-center gap-2">
                     <div className="text-center">
-                      <div className="text-2xl font-display font-bold text-brand-600">{stats.goalsFor}</div>
-                      <div className="text-[10px] mt-1" style={{color:'#94a3b8'}}>Dicetak</div>
+                      <div className="text-xl font-display font-bold text-brand-600">{stats.goalsFor}</div>
+                      <div className="text-[10px] mt-0.5" style={{color:'#94a3b8'}}>Cetak</div>
                     </div>
-                    <div className="text-3xl font-display font-bold" style={{color:'#cbd5e1'}}>:</div>
+                    <div className="text-2xl font-display font-bold" style={{color:'#cbd5e1'}}>:</div>
                     <div className="text-center">
-                      <div className="text-2xl font-display font-bold text-accent-red">{stats.goalsAgainst}</div>
-                      <div className="text-[10px] mt-1" style={{color:'#94a3b8'}}>Kebobolan</div>
+                      <div className="text-xl font-display font-bold text-accent-red">{stats.goalsAgainst}</div>
+                      <div className="text-[10px] mt-0.5" style={{color:'#94a3b8'}}>Bobol</div>
                     </div>
                   </div>
                 </div>
@@ -191,8 +193,8 @@ export default function TeamDetail() {
                 const isHome = m.home_team_id === id
                 const myScore  = isHome ? m.home_score : m.away_score
                 const oppScore = isHome ? m.away_score : m.home_score
-                const result   = myScore > oppScore ? 'W' : myScore < oppScore ? 'L' : 'D'
-                const resultBadge = result === 'W' ? 'badge-green' : result === 'L' ? 'badge-red' : 'badge-gray'
+                const hasScore = m.home_score !== null && m.away_score !== null
+                const result   = !hasScore ? null : myScore > oppScore ? 'W' : myScore < oppScore ? 'L' : 'D'
                 return (
                   <div key={m.id} className="flex items-center px-5 py-3 gap-3 table-row-hover">
                     <div className="w-[35%] text-right text-sm font-medium truncate" style={{color:'#0f172a'}}>{m.home_team_name}</div>
@@ -204,7 +206,7 @@ export default function TeamDetail() {
                       <span className={`hidden sm:inline-flex badge ${m.season_type === 'champions' ? 'badge-purple' : m.season_type === 'cup' ? 'badge-yellow' : 'badge-blue'}`}>
                         {m.season_name}
                       </span>
-                      <span className={`badge ${resultBadge}`}>{result}</span>
+                      {result && <span className={`badge ${result === 'W' ? 'badge-green' : result === 'L' ? 'badge-red' : 'badge-gray'}`}>{result}</span>}
                     </div>
                   </div>
                 )

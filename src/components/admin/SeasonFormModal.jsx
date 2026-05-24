@@ -3,7 +3,7 @@ import { Trophy, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 
-function compressImage(file, maxSize = 256, quality = 0.8) {
+function compressImage(file, maxSize = 512, quality = 0.85) {
   return new Promise((resolve) => {
     const img = new Image()
     const url = URL.createObjectURL(file)

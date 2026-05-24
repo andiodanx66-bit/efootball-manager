@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import ManageUsersTab from '../components/admin/ManageUsersTab'
 import InviteTokensTab from '../components/admin/InviteTokensTab'
+import MatchHistoryTab from '../components/admin/MatchHistoryTab'
 
 export default function AdminPage() {
   const [tab, setTab] = useState('pending')
@@ -49,6 +50,7 @@ export default function AdminPage() {
     { key: 'pending', label: 'Hasil Pending', count: counts.matches },
     { key: 'users',   label: 'Pengguna & Tim' },
     { key: 'tokens',  label: 'Token Undangan' },
+    { key: 'history', label: 'Riwayat Match' },
   ]
 
   return (
@@ -126,6 +128,7 @@ export default function AdminPage() {
 
       {tab === 'users'  && <ManageUsersTab />}
       {tab === 'tokens' && <InviteTokensTab />}
+      {tab === 'history' && <MatchHistoryTab />}
 
       {imgModal && createPortal(
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setImgModal(null)}>

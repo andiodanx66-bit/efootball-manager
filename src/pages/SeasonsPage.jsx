@@ -202,7 +202,7 @@ export default function SeasonsPage() {
   )
 }
 
-function compressImage(file, maxSize = 256, quality = 0.8) {
+function compressImage(file, maxSize = 512, quality = 0.85) {
   return new Promise((resolve) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
@@ -221,6 +221,7 @@ function compressImage(file, maxSize = 256, quality = 0.8) {
 
 function SeasonCard({ season, editMode, onUpdate }) {
   const Icon = typeIcon[season.type] || Trophy
+  const [editModal,     setEditModal]     = useState(false)
   const [renaming,      setRenaming]      = useState(false)
   const [newName,       setNewName]       = useState(season.name)
   const [newGroup,      setNewGroup]      = useState(season.season_group || '')
@@ -228,11 +229,20 @@ function SeasonCard({ season, editMode, onUpdate }) {
   const [saving,        setSaving]        = useState(false)
   const [statusSaving,  setStatusSaving]  = useState(false)
   const [deleteModal,   setDeleteModal]   = useState(false)
-  const [editingLogo,   setEditingLogo]   = useState(false)
   const [logoFile,      setLogoFile]      = useState(null)
   const [logoPreview,   setLogoPreview]   = useState(null)
   const [logoSaving,    setLogoSaving]    = useState(false)
   const logoFileRef = useRef()
+
+  function closeEditModal() {
+    setEditModal(false)
+    setRenaming(false)
+    setEditingGroup(false)
+    setNewName(season.name)
+    setNewGroup(season.season_group || '')
+    setLogoFile(null)
+    setLogoPreview(null)
+  }
 
   async function handleRename() {
     if (!newName.trim() || newName.trim() === season.name) { setRenaming(false); return }
@@ -256,10 +266,12 @@ function SeasonCard({ season, editMode, onUpdate }) {
     await supabase.from('seasons').update({ status: newStatus }).eq('id', season.id)
     setStatusSaving(false)
     onUpdate()
+    closeEditModal()
   }
 
   async function handleDelete() {
     setDeleteModal(false)
+    setEditModal(false)
     await supabase.from('seasons').delete().eq('id', season.id)
     onUpdate()
   }
@@ -272,7 +284,7 @@ function SeasonCard({ season, editMode, onUpdate }) {
   }
 
   async function handleLogoSave() {
-    if (!logoFile) { setEditingLogo(false); return }
+    if (!logoFile) return
     setLogoSaving(true)
     try {
       const compressed = await compressImage(logoFile)
@@ -285,7 +297,6 @@ function SeasonCard({ season, editMode, onUpdate }) {
       const logo_url = `${data.publicUrl}?t=${Date.now()}`
       await supabase.from('seasons').update({ logo_url }).eq('id', season.id)
       onUpdate()
-      setEditingLogo(false)
       setLogoFile(null)
       setLogoPreview(null)
     } catch (err) {
@@ -300,210 +311,166 @@ function SeasonCard({ season, editMode, onUpdate }) {
     season.type === 'cup'       ? 'bg-accent-yellow/20 text-accent-yellow' :
                                   'bg-brand-500/20 text-brand-400'
 
-  function renderIcon() {
-    if (editMode && editingLogo) {
-      const currentPreview = logoPreview || season.logo_url
-      return (
-        <div className="flex flex-col items-center gap-2 mt-0.5">
-          <div
-            className="w-14 h-14 rounded-xl bg-brand-50 border-2 border-dashed border-brand-300 flex items-center justify-center overflow-hidden cursor-pointer hover:border-brand-500 transition-colors"
-            onClick={() => logoFileRef.current.click()}
-          >
-            {currentPreview
-              ? <img src={currentPreview} alt="logo" className="w-full h-full object-cover" />
-              : <Trophy size={28} className="text-brand-300" />}
-          </div>
-          <div className="flex gap-1">
-            <button
-              onClick={handleLogoSave}
-              disabled={logoSaving || !logoFile}
-              className="text-accent-green hover:text-accent-green/70 disabled:opacity-50"
-            >
-              <Check size={14} />
-            </button>
-            <button
-              onClick={() => { setEditingLogo(false); setLogoFile(null); setLogoPreview(null); }}
-              className="text-ink-faint hover:text-ink"
-            >
-              <X size={14} />
-            </button>
-          </div>
-          <input ref={logoFileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoFileChange} />
-        </div>
-      )
-    }
+  const logoEl = season.logo_url
+    ? <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0"><img src={season.logo_url} alt={season.name} className="w-full h-full object-cover" /></div>
+    : <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}><Icon size={20} /></div>
 
-    if (season.logo_url) {
-      return (
-        <div className="flex flex-col items-center gap-1 mt-0.5">
-          <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
-            <img src={season.logo_url} alt={season.name} className="w-full h-full object-cover" />
-          </div>
-          {editMode && (
-            <button
-              onClick={() => setEditingLogo(true)}
-              className="text-[10px] text-ink-faint hover:text-brand-600 transition-colors"
-            >
-              Ganti
-            </button>
-          )}
+  // ── Card (sama di normal & edit mode) ──
+  const cardContent = (
+    <div className={`card-hover p-4 flex items-center gap-3 ${editMode ? 'border-accent-yellow/40 cursor-pointer' : ''}`}
+      onClick={editMode ? () => setEditModal(true) : undefined}
+    >
+      {logoEl}
+      <div className="flex-1 min-w-0">
+        <div className="font-display font-semibold text-base truncate text-ink">{season.name}</div>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          <span className="text-xs text-ink-faint">{typeLabel[season.type] || season.type}</span>
+          <StatusBadge status={season.status} />
         </div>
-      )
-    }
-
-    return (
-      <div className="flex flex-col items-center gap-1 mt-0.5">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>
-          <Icon size={20} />
-        </div>
-        {editMode && (
-          <button
-            onClick={() => setEditingLogo(true)}
-            className="text-[10px] text-ink-faint hover:text-brand-600 transition-colors"
-          >
-            Tambah
-          </button>
-        )}
       </div>
-    )
-  }
+      {editMode
+        ? <Pencil size={15} className="text-accent-yellow shrink-0" />
+        : <ChevronRight size={16} className="text-ink-faint shrink-0" />}
+    </div>
+  )
 
-  if (editMode) {
-    return (
-      <>
-        <div className="card-hover p-4 flex items-start gap-3 border-accent-yellow/20">
-          {renderIcon()}
-
-          <div className="flex-1 min-w-0 space-y-1.5">
-            {/* Nama */}
-            {renaming ? (
-              <div className="flex items-center gap-2">
-                <input
-                  autoFocus
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenaming(false) }}
-                  className="input py-1 text-sm font-display font-semibold"
-                />
-                <button onClick={handleRename} disabled={saving} className="text-accent-green hover:text-accent-green/70 shrink-0"><Check size={16} /></button>
-                <button onClick={() => { setRenaming(false); setNewName(season.name) }} className="text-ink-faint hover:text-ink shrink-0"><X size={16} /></button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-display font-semibold text-base text-ink">{season.name}</span>
-                <StatusBadge status={season.status} />
-              </div>
-            )}
-
-            {/* Musim (season_group) */}
-            {editingGroup ? (
-              <div className="flex items-center gap-2">
-                <input
-                  autoFocus
-                  value={newGroup}
-                  onChange={e => setNewGroup(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleGroupSave(); if (e.key === 'Escape') { setEditingGroup(false); setNewGroup(season.season_group || '') } }}
-                  className="input py-1 text-xs"
-                  placeholder="cth: Musim 1"
-                />
-                <button onClick={handleGroupSave} disabled={saving} className="text-accent-green hover:text-accent-green/70 shrink-0"><Check size={14} /></button>
-                <button onClick={() => { setEditingGroup(false); setNewGroup(season.season_group || '') }} className="text-ink-faint hover:text-ink shrink-0"><X size={14} /></button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setEditingGroup(true)}
-                className="flex items-center gap-1 text-xs text-ink-faint hover:text-brand-600 transition-colors"
-              >
-                <Layers size={11} />
-                {season.season_group ? season.season_group : <span className="italic">Belum ada musim</span>}
-                <Pencil size={10} className="opacity-50" />
-              </button>
-            )}
-          </div>
-
-          {!renaming && !editingGroup && (
-            <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-              {season.status !== 'finished' ? (
-                <button
-                  onClick={() => handleStatusChange('finished')}
-                  disabled={statusSaving}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-display font-semibold bg-surface-muted hover:bg-slate-200 text-ink-muted hover:text-ink transition-colors border border-surface-border"
-                >
-                  <Archive size={12} /> Selesai
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleStatusChange('active')}
-                  disabled={statusSaving}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-display font-semibold bg-accent-green/10 hover:bg-accent-green/20 text-accent-green transition-colors border border-accent-green/20"
-                >
-                  <Play size={12} /> Aktifkan
-                </button>
-              )}
-              <button
-                onClick={() => setRenaming(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-display font-semibold bg-surface-muted hover:bg-surface-border text-ink-muted hover:text-ink transition-colors border border-surface-border"
-              >
-                <Pencil size={12} /> Rename
-              </button>
-              <button
-                onClick={() => setDeleteModal(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-display font-semibold bg-accent-red/10 hover:bg-accent-red/20 text-accent-red transition-colors border border-accent-red/20"
-              >
-                <Trash2 size={12} /> Hapus
-              </button>
-            </div>
-          )}
-        </div>
-
-        {deleteModal && createPortal(
-          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setDeleteModal(false)}>
-            <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
-              <h2 className="font-display font-bold text-lg mb-2 text-ink">Hapus Kompetisi</h2>
-              <p className="text-ink-muted text-sm mb-1">Yakin ingin menghapus <span className="text-ink font-semibold">{season.name}</span>?</p>
-              <p className="text-ink-faint text-xs mb-5">Semua jadwal, hasil, tim terdaftar, dan klasemen akan ikut terhapus permanen.</p>
-              <div className="flex gap-3">
-                <button onClick={() => setDeleteModal(false)} className="btn-secondary flex-1 text-sm">Batal</button>
-                <button onClick={handleDelete} className="btn-danger flex-1 text-sm">Hapus</button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
-      </>
-    )
-  }
-
-  // Normal mode
   return (
     <>
-      <Link to={`/seasons/${season.id}`} className="card-hover p-4 flex items-center gap-3 block">
-        {renderIcon()}
-        <div className="flex-1 min-w-0">
-          <div className="font-display font-semibold text-base truncate text-ink">{season.name}</div>
-          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-xs text-ink-faint">{typeLabel[season.type] || season.type}</span>
-            {season.status === 'active' && <StatusBadge status="active" />}
-            {season.status === 'finished' && <StatusBadge status="finished" />}
-          </div>
-        </div>
-        <ChevronRight size={16} className="text-ink-faint shrink-0" />
-      </Link>
+      {editMode ? cardContent : <Link to={`/seasons/${season.id}`} className="block">{cardContent}</Link>}
 
-      {deleteModal && createPortal(
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setDeleteModal(false)}>
-            <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
-              <h2 className="font-display font-bold text-lg mb-2 text-ink">Hapus Kompetisi</h2>
-              <p className="text-ink-muted text-sm mb-1">Yakin ingin menghapus <span className="text-ink font-semibold">{season.name}</span>?</p>
-              <p className="text-ink-faint text-xs mb-5">Semua jadwal, hasil, tim terdaftar, dan klasemen akan ikut terhapus permanen.</p>
-              <div className="flex gap-3">
-                <button onClick={() => setDeleteModal(false)} className="btn-secondary flex-1 text-sm">Batal</button>
-                <button onClick={handleDelete} className="btn-danger flex-1 text-sm">Hapus</button>
+      {/* ── Edit Modal ── */}
+      {editModal && createPortal(
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={closeEditModal}>
+          <div className="bg-white w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl shadow-xl animate-slide-in overflow-hidden"
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header modal */}
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-surface-border">
+              {logoEl}
+              <div className="flex-1 min-w-0">
+                <div className="font-display font-semibold text-base truncate text-ink">{season.name}</div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs text-ink-faint">{typeLabel[season.type] || season.type}</span>
+                  <StatusBadge status={season.status} />
+                </div>
+              </div>
+              <button onClick={closeEditModal} className="text-ink-faint hover:text-ink p-1 shrink-0">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+
+              {/* Ganti Logo */}
+              <div>
+                <p className="text-xs font-semibold text-ink-muted mb-2 uppercase tracking-wide">Logo</p>
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-14 h-14 rounded-xl border-2 border-dashed border-surface-border hover:border-brand-400 flex items-center justify-center overflow-hidden cursor-pointer transition-colors"
+                    onClick={() => logoFileRef.current.click()}
+                  >
+                    {logoPreview || season.logo_url
+                      ? <img src={logoPreview || season.logo_url} alt="logo" className="w-full h-full object-cover" />
+                      : <Trophy size={24} className="text-ink-faint" />}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <button onClick={() => logoFileRef.current.click()}
+                      className="text-xs btn-secondary py-1.5 px-3">
+                      {season.logo_url ? 'Ganti Logo' : 'Upload Logo'}
+                    </button>
+                    {logoFile && (
+                      <button onClick={handleLogoSave} disabled={logoSaving}
+                        className="text-xs btn-primary py-1.5 px-3 flex items-center gap-1">
+                        <Check size={11} /> {logoSaving ? 'Menyimpan...' : 'Simpan Logo'}
+                      </button>
+                    )}
+                  </div>
+                  <input ref={logoFileRef} type="file" accept="image/*" className="hidden" onChange={handleLogoFileChange} />
+                </div>
+              </div>
+
+              {/* Rename */}
+              <div>
+                <p className="text-xs font-semibold text-ink-muted mb-2 uppercase tracking-wide">Nama Kompetisi</p>
+                {renaming ? (
+                  <div className="flex items-center gap-2">
+                    <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') { setRenaming(false); setNewName(season.name) } }}
+                      className="input py-1.5 text-sm flex-1" />
+                    <button onClick={handleRename} disabled={saving} className="text-accent-green hover:text-accent-green/70 shrink-0"><Check size={16} /></button>
+                    <button onClick={() => { setRenaming(false); setNewName(season.name) }} className="text-ink-faint hover:text-ink shrink-0"><X size={16} /></button>
+                  </div>
+                ) : (
+                  <button onClick={() => setRenaming(true)}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-surface-border hover:border-brand-300 hover:bg-surface-muted transition-colors text-sm text-ink">
+                    <span className="truncate">{season.name}</span>
+                    <Pencil size={13} className="text-ink-faint shrink-0" />
+                  </button>
+                )}
+              </div>
+
+              {/* Musim / Group */}
+              <div>
+                <p className="text-xs font-semibold text-ink-muted mb-2 uppercase tracking-wide">Musim</p>
+                {editingGroup ? (
+                  <div className="flex items-center gap-2">
+                    <input autoFocus value={newGroup} onChange={e => setNewGroup(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleGroupSave(); if (e.key === 'Escape') { setEditingGroup(false); setNewGroup(season.season_group || '') } }}
+                      className="input py-1.5 text-sm flex-1" placeholder="cth: Musim 1" />
+                    <button onClick={handleGroupSave} disabled={saving} className="text-accent-green hover:text-accent-green/70 shrink-0"><Check size={16} /></button>
+                    <button onClick={() => { setEditingGroup(false); setNewGroup(season.season_group || '') }} className="text-ink-faint hover:text-ink shrink-0"><X size={16} /></button>
+                  </div>
+                ) : (
+                  <button onClick={() => setEditingGroup(true)}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-surface-border hover:border-brand-300 hover:bg-surface-muted transition-colors text-sm">
+                    <span className={season.season_group ? 'text-ink' : 'text-ink-faint italic'}>
+                      {season.season_group || 'Belum ada musim'}
+                    </span>
+                    <Pencil size={13} className="text-ink-faint shrink-0" />
+                  </button>
+                )}
+              </div>
+
+              {/* Status */}
+              <div className="flex gap-2 pt-1">
+                {season.status !== 'finished' ? (
+                  <button onClick={() => handleStatusChange('finished')} disabled={statusSaving}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-display font-semibold bg-surface-muted hover:bg-slate-200 text-ink-muted hover:text-ink transition-colors border border-surface-border">
+                    <Archive size={14} /> Tandai Selesai
+                  </button>
+                ) : (
+                  <button onClick={() => handleStatusChange('active')} disabled={statusSaving}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-display font-semibold bg-accent-green/10 hover:bg-accent-green/20 text-accent-green transition-colors border border-accent-green/20">
+                    <Play size={14} /> Aktifkan
+                  </button>
+                )}
+                <button onClick={() => setDeleteModal(true)}
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-display font-semibold bg-accent-red/10 hover:bg-accent-red/20 text-accent-red transition-colors border border-accent-red/20">
+                  <Trash2 size={14} /> Hapus
+                </button>
               </div>
             </div>
-          </div>,
-          document.body
-        )}
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Delete Confirm Modal ── */}
+      {deleteModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={() => setDeleteModal(false)}>
+          <div className="card p-6 w-full max-w-sm animate-slide-in" onClick={e => e.stopPropagation()}>
+            <h2 className="font-display font-bold text-lg mb-2 text-ink">Hapus Kompetisi</h2>
+            <p className="text-ink-muted text-sm mb-1">Yakin ingin menghapus <span className="text-ink font-semibold">{season.name}</span>?</p>
+            <p className="text-ink-faint text-xs mb-5">Semua jadwal, hasil, tim terdaftar, dan klasemen akan ikut terhapus permanen.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteModal(false)} className="btn-secondary flex-1 text-sm">Batal</button>
+              <button onClick={handleDelete} className="btn-danger flex-1 text-sm">Hapus</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   )
 }
