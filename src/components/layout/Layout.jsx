@@ -3,12 +3,14 @@ import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Trophy, Users, LogOut, Shield, Sun, Moon, User
 } from 'lucide-react'
+import { GiSoccerBall } from 'react-icons/gi'
 import { useAuth } from '../../hooks/useAuth'
 
 const navItems = [
   { to: '/',          label: 'Dashboard',  icon: LayoutDashboard, end: true },
-  { to: '/seasons',   label: 'Kompetisi',  icon: Trophy },
+  { to: '/seasons',   label: 'Kompetisi',  icon: GiSoccerBall },
   { to: '/teams',     label: 'Tim',        icon: Users },
+  { to: '/trofi',     label: 'Trofi',      icon: Trophy },
 ]
 
 export default function Layout() {

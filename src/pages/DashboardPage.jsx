@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { createPortal } from 'react-dom'
-import { Trophy, Clock } from 'lucide-react'
+import { Trophy, Clock, Award, ChevronRight } from 'lucide-react'
 
 function FootballGameIcon({ size = 18, className = '' }) {
   return (
@@ -129,6 +129,23 @@ export default function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      {myTeamId && (
+        <Link to="/my-trophies" className="card flex items-center justify-between gap-3 px-4 py-3 cursor-pointer hover:border-white/20 transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-accent-green/10 text-accent-green flex items-center justify-center">
+              <Award size={16} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-display font-bold text-ink">Trofi Saya</div>
+              <div className="text-xs text-ink-muted">Lihat koleksi trofi tim Anda</div>
+            </div>
+          </div>
+          <div className="text-ink-faint">
+            <ChevronRight size={16} />
+          </div>
+        </Link>
+      )}
 
       {/* Team Statistics - Compact */}
       {myTeamId && myMatches.length > 0 && (() => {

@@ -12,6 +12,8 @@ import MyTeamPage     from './pages/MyTeamPage'
 import StatisticsPage from './pages/StatisticsPage'
 import AdminPage      from './pages/AdminPage'
 import ProfilePage    from './pages/ProfilePage'
+import TrofiPage      from './pages/TrofiPage'
+import MyTrophiesPage from './pages/MyTrophiesPage'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -44,6 +46,8 @@ export default function App() {
             <Route path="teams/:id"   element={<TeamDetail />} />
             <Route path="my-team"     element={<MyTeamPage />} />
             <Route path="statistics"  element={<StatisticsPage />} />
+            <Route path="trofi"       element={<TrofiPage />} />
+            <Route path="my-trophies" element={<MyTrophiesPage />} />
             <Route path="admin"       element={<AdminRoute><AdminPage /></AdminRoute>} />
             <Route path="profile"     element={<ProfilePage />} />
           </Route>
