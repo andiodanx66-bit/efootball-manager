@@ -1,28 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Trophy, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Trophy, ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 
-function getUniqueSeasonGroups(seasons) {
-  const groups = []
-  const seen = new Set()
-  seasons.forEach(s => {
-    if (s.season_group && !seen.has(s.season_group)) {
-      seen.add(s.season_group)
-      groups.push(s.season_group)
-    }
-  })
-  return groups
-}
-
 export default function MyTrophiesPage() {
   const { user } = useAuth()
   const [trophies, setTrophies] = useState([])
-  const [seasons, setSeasons] = useState([])
   const [loading, setLoading] = useState(true)
   const [myTeamId, setMyTeamId] = useState(null)
-  const [currentGroupIndex, setCurrentGroupIndex] = useState(null)
 
   useEffect(() => {
     fetchData()
@@ -35,51 +21,17 @@ export default function MyTrophiesPage() {
       const teamId = teamData?.id || null
       setMyTeamId(teamId)
 
-      const [{ data: seasonData }, { data: trophyData }] = await Promise.all([
-        supabase
-          .from('seasons')
-          .select('id, name, season_group')
-          .order('created_at', { ascending: false }),
-        teamId
-          ? supabase
-              .from('trophies')
-              .select('id, title, image_url, created_at, team:teams(id, name, logo_url), season:seasons(id, name, season_group)')
-              .eq('team_id', teamId)
-              .order('created_at', { ascending: false })
-          : { data: [] }
-      ])
+      const { data: trophyData } = teamId
+        ? await supabase
+            .from('trophies')
+            .select('id, title, image_url, created_at, team:teams(id, name, logo_url), season:seasons(id, name, season_group)')
+            .eq('team_id', teamId)
+            .order('created_at', { ascending: false })
+        : { data: [] }
 
-      setSeasons(seasonData || [])
       setTrophies(trophyData || [])
-
-      if (seasonData?.length) {
-        const groups = getUniqueSeasonGroups(seasonData)
-        if (groups.length) {
-          setCurrentGroupIndex(0)
-        }
-      }
     }
     setLoading(false)
-  }
-
-  const seasonGroups = getUniqueSeasonGroups(seasons)
-  const currentSeasonGroup = seasonGroups[currentGroupIndex] || null
-
-  function getCurrentGroupTrophies() {
-    if (currentGroupIndex === null || !currentSeasonGroup) return trophies
-    return trophies.filter(t => t.season?.season_group === currentSeasonGroup)
-  }
-
-  function nextSeasonGroup() {
-    if (currentGroupIndex < seasonGroups.length - 1) {
-      setCurrentGroupIndex(currentGroupIndex + 1)
-    }
-  }
-
-  function prevSeasonGroup() {
-    if (currentGroupIndex > 0) {
-      setCurrentGroupIndex(currentGroupIndex - 1)
-    }
   }
 
   if (loading) return (
@@ -128,41 +80,7 @@ export default function MyTrophiesPage() {
         </div>
       </div>
 
-      {!loading && seasonGroups.length > 0 && (
-        <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={prevSeasonGroup}
-            disabled={currentGroupIndex === 0}
-            className={`p-2 rounded-lg transition-all ${
-              currentGroupIndex === 0
-                ? 'text-ink-faint cursor-not-allowed'
-                : 'text-ink hover:bg-surface-muted'
-            }`}
-            title="Season sebelumnya"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          <div className="text-center flex-1">
-            <p className="font-display font-bold text-lg text-ink">{currentSeasonGroup || 'Semua'}</p>
-          </div>
-          <button
-            type="button"
-            onClick={nextSeasonGroup}
-            disabled={currentGroupIndex === seasonGroups.length - 1}
-            className={`p-2 rounded-lg transition-all ${
-              currentGroupIndex === seasonGroups.length - 1
-                ? 'text-ink-faint cursor-not-allowed'
-                : 'text-ink hover:bg-surface-muted'
-            }`}
-            title="Season selanjutnya"
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-      )}
-
-      {getCurrentGroupTrophies().length === 0 ? (
+      {trophies.length === 0 ? (
         <div className="card p-12 text-center">
           <Trophy size={40} className="text-ink-faint mx-auto mb-3 opacity-30" />
           <p className="text-sm font-medium text-ink">Belum ada trofi</p>
@@ -170,7 +88,7 @@ export default function MyTrophiesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {getCurrentGroupTrophies().map((item) => (
+          {trophies.map((item) => (
             <div key={item.id} className="space-y-3">
               <div className="aspect-square bg-surface-muted rounded-xl overflow-hidden shadow-md">
                 <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" />

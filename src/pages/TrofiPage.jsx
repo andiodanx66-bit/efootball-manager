@@ -82,7 +82,14 @@ export default function TrofiPage() {
     if (seasonData?.length) {
       const groups = getUniqueSeasonGroups(seasonData)
       if (groups.length) {
-        setCurrentGroupIndex(groups.length - 1)
+        // Cari season yang sedang aktif, lalu set groupnya sebagai default
+        const activeSeason = seasonData.find(s => s.status === 'active')
+        if (activeSeason && activeSeason.season_group) {
+          const activeIndex = groups.indexOf(activeSeason.season_group)
+          setCurrentGroupIndex(activeIndex !== -1 ? activeIndex : groups.length - 1)
+        } else {
+          setCurrentGroupIndex(groups.length - 1)
+        }
       }
     }
     setLoading(false)
@@ -213,10 +220,10 @@ export default function TrofiPage() {
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={prevSeasonGroup}
-            disabled={currentGroupIndex === 0}
+            onClick={nextSeasonGroup}
+            disabled={currentGroupIndex === seasonGroups.length - 1}
             className={`p-2 rounded-lg transition-all ${
-              currentGroupIndex === 0
+              currentGroupIndex === seasonGroups.length - 1
                 ? 'text-ink-faint cursor-not-allowed'
                 : 'text-ink hover:bg-surface-muted'
             }`}
@@ -229,10 +236,10 @@ export default function TrofiPage() {
           </div>
           <button
             type="button"
-            onClick={nextSeasonGroup}
-            disabled={currentGroupIndex === seasonGroups.length - 1}
+            onClick={prevSeasonGroup}
+            disabled={currentGroupIndex === 0}
             className={`p-2 rounded-lg transition-all ${
-              currentGroupIndex === seasonGroups.length - 1
+              currentGroupIndex === 0
                 ? 'text-ink-faint cursor-not-allowed'
                 : 'text-ink hover:bg-surface-muted'
             }`}

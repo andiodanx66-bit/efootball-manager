@@ -527,53 +527,87 @@ export default function SeasonDetail() {
               }
               
               if (season.type === 'cup') {
-                KO_ROUNDS.forEach(ko => {
-                  const koMatches = matches.filter(m => m.stage === ko.key)
-                  if (koMatches.length === 0) return
-                  const isFinal = ko.key === 'final'
-                  const finalSeriesType = season?.final_series_type || 'single'
-                  
-                  if (isFinal && finalSeriesType === 'best_of') {
-                    const roundNums = [...new Set(koMatches.map(m => m.round))].sort((a, b) => a - b)
-                    roundNums.forEach(rn => {
-                      const seriesMatches = koMatches
-                        .filter(m => m.round === rn)
-                        .sort((a, b) => (a.leg_number ?? 0) - (b.leg_number ?? 0))
-                      
-                      let winsA = 0, winsB = 0
-                      seriesMatches.forEach(g => {
-                        if (g.status === 'approved' && g.home_score !== null && g.away_score !== null) {
-                          if (g.home_score > g.away_score) {
-                            if (g.home_team_id === (seriesMatches[0]?.home_team_id)) winsA++
-                            else winsB++
-                          } else if (g.away_score > g.home_score) {
-                            if (g.away_team_id === (seriesMatches[0]?.home_team_id)) winsA++
-                            else winsB++
+                const hasKoStage = matches.some(m => KO_ROUNDS.some(r => r.key === m.stage))
+                if (hasKoStage) {
+                  KO_ROUNDS.forEach(ko => {
+                    const koMatches = matches.filter(m => m.stage === ko.key)
+                    if (koMatches.length === 0) return
+                    const isFinal = ko.key === 'final'
+                    const finalSeriesType = season?.final_series_type || 'single'
+                    
+                    if (isFinal && finalSeriesType === 'best_of') {
+                      const roundNums = [...new Set(koMatches.map(m => m.round))].sort((a, b) => a - b)
+                      roundNums.forEach(rn => {
+                        const seriesMatches = koMatches
+                          .filter(m => m.round === rn)
+                          .sort((a, b) => (a.leg_number ?? 0) - (b.leg_number ?? 0))
+                        
+                        let winsA = 0, winsB = 0
+                        seriesMatches.forEach(g => {
+                          if (g.status === 'approved' && g.home_score !== null && g.away_score !== null) {
+                            if (g.home_score > g.away_score) {
+                              if (g.home_team_id === (seriesMatches[0]?.home_team_id)) winsA++
+                              else winsB++
+                            } else if (g.away_score > g.home_score) {
+                              if (g.away_team_id === (seriesMatches[0]?.home_team_id)) winsA++
+                              else winsB++
+                            }
                           }
-                        }
-                      })
-                      
-                      items.push(
-                        <div key={`cup-${ko.key}-${rn}`} className="card overflow-hidden">
-                          <div className="px-5 py-3 flex items-center gap-2" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                            <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
-                            <span className="text-xs text-slate-400 font-mono">({winsA}-{winsB})</span>
+                        })
+                        
+                        items.push(
+                          <div key={`cup-${ko.key}-${rn}`} className="card overflow-hidden">
+                            <div className="px-5 py-3 flex items-center gap-2" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                              <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
+                              <span className="text-xs text-slate-400 font-mono">({winsA}-{winsB})</span>
+                            </div>
+                            <MatchList matches={seriesMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                           </div>
-                          <MatchList matches={seriesMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                        </div>
-                      )
-                    })
-                  } else {
+                        )
+                      })
+                    } else {
+                      // Kelompokkan per round (pair) dalam babak ini
+                      const roundNums = [...new Set(koMatches.map(m => m.round))].sort((a, b) => a - b)
+                      if (roundNums.length > 1) {
+                        roundNums.forEach(rn => {
+                          const pairMatches = koMatches.filter(m => m.round === rn).sort((a, b) => (a.leg_number ?? 0) - (b.leg_number ?? 0))
+                          items.push(
+                            <div key={`cup-${ko.key}-${rn}`} className="card overflow-hidden">
+                              <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                                <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
+                              </div>
+                              <MatchList matches={pairMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
+                            </div>
+                          )
+                        })
+                      } else {
+                        items.push(
+                          <div key={`cup-${ko.key}`} className="card overflow-hidden">
+                            <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                              <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
+                            </div>
+                            <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
+                          </div>
+                        )
+                      }
+                    }
+                  })
+                } else {
+                  // Fallback: match lama tanpa stage, kelompokkan per round
+                  rounds.forEach(r => {
+                    const roundMatches = matches.filter(m => m.round === r)
                     items.push(
-                      <div key={`cup-${ko.key}`} className="card overflow-hidden">
+                      <div key={`round-${r}`} className="card overflow-hidden">
                         <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                          <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
+                          <span className="font-display font-semibold text-sm text-brand-600">
+                            {KO_ROUNDS.find(k => matches.find(m => m.round === r && m.stage === k.key))?.label || stageLabel(r, rounds.length)}
+                          </span>
                         </div>
-                        <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
+                        <MatchList matches={roundMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                       </div>
                     )
-                  }
-                })
+                  })
+                }
               } else {
                 rounds.forEach(r => {
                   const roundMatches = matches.filter(m => m.round === r)
@@ -1906,24 +1940,20 @@ function SetupBracketModal({ enrolledTeams, seasonId, season, onClose, onSaved }
   const [saving, setSaving]   = useState(false)
   const needed = teamCount[stage] ?? 0
   const isExact = selected.length === needed
-  const selectedTeams = teamList.filter(t => selected.includes(t.id))
+  const selectedTeams = teamList.filter(t => selected.includes(String(t.id)))
   
   const isFinal = stage === 'final'
   const finalSeriesType = season?.final_series_type || 'single'
   const finalBestOf = season?.final_best_of || 1
 
   function toggleTeam(id) {
-    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+    const sid = String(id)
+    setSelected(prev => prev.includes(sid) ? prev.filter(x => x !== sid) : [...prev, sid])
   }
 
   function initManualPairs() {
-    const newPairs = []
-    for (let i = 0; i < selected.length; i += 2) {
-      if (selected[i + 1]) {
-        newPairs.push({ homeTeamId: selected[i], awayTeamId: selected[i + 1] })
-      }
-    }
-    setPairs(newPairs)
+    const count = Math.floor(selected.length / 2)
+    setPairs(Array.from({ length: count }, () => ({ homeTeamId: null, awayTeamId: null })))
     setStep(3)
   }
 
@@ -1935,22 +1965,22 @@ function SetupBracketModal({ enrolledTeams, seasonId, season, onClose, onSaved }
     })
   }
 
-  function changeHomeTeam(pairIdx, teamId) {
+  function changeHomeTeam(pairIdx, rawValue) {
+    const tid = rawValue !== '' && rawValue != null ? rawValue : null
     setPairs(prev => {
-      const copy = [...prev]
-      copy[pairIdx] = { ...copy[pairIdx], homeTeamId: teamId }
+      const copy = prev.map((p, i) => i === pairIdx ? { ...p, homeTeamId: tid } : p)
       return copy
     })
   }
-  function changeAwayTeam(pairIdx, teamId) {
+  function changeAwayTeam(pairIdx, rawValue) {
+    const tid = rawValue !== '' && rawValue != null ? rawValue : null
     setPairs(prev => {
-      const copy = [...prev]
-      copy[pairIdx] = { ...copy[pairIdx], awayTeamId: teamId }
+      const copy = prev.map((p, i) => i === pairIdx ? { ...p, awayTeamId: tid } : p)
       return copy
     })
   }
 
-  function getTeamObj(id) { return teamList.find(t => t.id === id) }
+  function getTeamObj(id) { return teamList.find(t => String(t.id) === String(id)) }
 
   function allTeamsUnique() {
     const used = new Set()
@@ -2011,16 +2041,16 @@ function SetupBracketModal({ enrolledTeams, seasonId, season, onClose, onSaved }
     if (!error) onSaved()
   }
 
-  async function handleRandom() {
+  function handleRandom() {
     if (selected.length < 2) { alert('Pilih minimal 2 tim!'); return }
     const shuffled = [...selected].sort(() => Math.random() - 0.5)
-    const pairData = []
-    for (let i = 0; i < shuffled.length; i += 2) {
-      if (shuffled[i + 1]) {
-        pairData.push({ homeTeamId: shuffled[i], awayTeamId: shuffled[i + 1] })
-      }
-    }
-    await handleSave(pairData)
+    const count = Math.floor(shuffled.length / 2)
+    const newPairs = Array.from({ length: count }, (_, i) => ({
+      homeTeamId: shuffled[i * 2],
+      awayTeamId: shuffled[i * 2 + 1]
+    }))
+    setPairs(newPairs)
+    setStep(3)
   }
 
   async function handleManualSave() {
@@ -2028,10 +2058,102 @@ function SetupBracketModal({ enrolledTeams, seasonId, season, onClose, onSaved }
     await handleSave(pairs)
   }
 
+  // Step 1 — pilih babak
+  if (step === 1) {
+    return (
+      <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
+          <h2 className="font-display font-bold text-base">Setup Bracket</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
+        </div>
+        <p className="px-5 pt-4 pb-2 text-xs text-slate-400">Pilih babak pertama kompetisi ini:</p>
+        <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
+          {KO_ROUNDS.map(r => (
+            <button key={r.key} onClick={() => { setStage(r.key); setSelected([]); setStep(2) }}
+              className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors text-left hover:bg-slate-50 ${stage === r.key ? 'bg-brand-50' : ''}`}>
+              <span className="font-medium text-sm">{r.label}</span>
+              <span className="text-xs text-slate-400 font-mono">{teamCount[r.key] ?? 2} tim</span>
+            </button>
+          ))}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-200 shrink-0">
+          <button onClick={onClose} className="btn-secondary w-full text-sm">Batal</button>
+        </div>
+      </div>
+    )
+  }
+
+  // Step 2 — pilih tim & format leg
+  if (step === 2) {
+    return (
+      <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setStep(1)} className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100">
+              <ArrowLeft size={16} />
+            </button>
+            <div>
+              <h2 className="font-display font-bold text-base">Pilih Tim — {KO_ROUNDS.find(r => r.key === stage)?.label}</h2>
+              <p className="text-[10px] text-slate-400 mt-0.5">Pilih {needed} tim untuk babak ini</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-display font-bold tabular-nums ${isExact ? 'text-accent-green' : selected.length > needed ? 'text-accent-red' : 'text-slate-400'}`}>
+              {selected.length}<span className="text-slate-300 font-normal">/{needed}</span>
+            </span>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
+          </div>
+        </div>
+
+        {isFinal && finalSeriesType === 'best_of' ? (
+          <div className="px-5 pt-4 pb-2 shrink-0">
+            <div className="p-4 rounded-xl" style={{backgroundColor:'#f8fafc', border:'1px solid #e2e8f0'}}>
+              <p className="text-xs text-slate-500 mb-1 font-medium">Format Final</p>
+              <p className="text-sm text-slate-600 font-semibold">Best of {finalBestOf}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="px-5 pt-4 pb-2 shrink-0">
+            <p className="text-xs text-slate-400 mb-2">Format pertandingan</p>
+            <div className="flex gap-2">
+              <button onClick={() => setLegs(1)} className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
+              <button onClick={() => setLegs(2)} className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
+            </div>
+          </div>
+        )}
+
+        <p className="px-5 pt-2 pb-1 text-xs text-slate-400">Pilih tim yang masuk babak ini:</p>
+        <div className="divide-y divide-slate-100 overflow-y-auto flex-1 mt-1">
+          {teamList.map(t => {
+            const checked = selected.includes(t.id)
+            return (
+              <button key={t.id} onClick={() => toggleTeam(t.id)}
+                className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
+                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-brand-600 overflow-hidden shrink-0">
+                  {t.owner?.avatar_url ? <img src={t.owner.avatar_url} alt="" /> : t.name[0]}
+                </div>
+                <span className="font-medium text-sm flex-1">{t.name}</span>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-slate-300'}`}>
+                  {checked && <Check size={12} className="text-white" />}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+        <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
+          <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
+          <button onClick={initManualPairs} disabled={!isExact} className="btn-secondary flex-1 text-sm">✏️ Manual</button>
+          <button onClick={handleRandom} disabled={saving || !isExact} className="btn-primary flex-1 text-sm">🎲 {saving ? '...' : 'Acak'}</button>
+        </div>
+      </div>
+    )
+  }
+
+  // Step 3 — atur pasangan manual
   if (step === 3) {
     const usedTeamIds = new Set()
-    pairs.forEach(p => { usedTeamIds.add(p.homeTeamId); usedTeamIds.add(p.awayTeamId) })
-    const unpairedTeams = selectedTeams.filter(t => !usedTeamIds.has(t.id))
+    pairs.forEach(p => { if (p.homeTeamId != null) usedTeamIds.add(p.homeTeamId); if (p.awayTeamId != null) usedTeamIds.add(p.awayTeamId) })
+    const unpairedTeams = selectedTeams.filter(t => !usedTeamIds.has(String(t.id)))
 
     return (
       <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
@@ -2055,6 +2177,10 @@ function SetupBracketModal({ enrolledTeams, seasonId, season, onClose, onSaved }
           )}
         </div>
 
+        <div className="px-5 py-2 border-b border-slate-100 bg-slate-50/50 shrink-0">
+          <p className="text-xs text-slate-500">Kosongkan dulu, pilih tim dari dropdown.</p>
+        </div>
+
         <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
           {pairs.map((pair, i) => {
             const home = getTeamObj(pair.homeTeamId)
@@ -2063,29 +2189,35 @@ function SetupBracketModal({ enrolledTeams, seasonId, season, onClose, onSaved }
               <div key={i} className="px-5 py-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Pair {i + 1}</span>
-                  <button onClick={() => swapPair(i)} className="text-slate-300 hover:text-brand-600 transition-colors text-xs px-2 py-0.5 rounded hover:bg-slate-100" title="Swap home/away">
-                    ⇄ Swap
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => swapPair(i)} className="text-slate-300 hover:text-brand-600 transition-colors text-xs px-2 py-0.5 rounded hover:bg-slate-100" title="Swap home/away">⇄ Swap</button>
+                    {pairs.length > 1 && (
+                      <button onClick={() => setPairs(prev => prev.filter((_, idx) => idx !== i))}
+                        className="text-slate-300 hover:text-accent-red transition-colors text-xs px-2 py-0.5 rounded hover:bg-red-50" title="Hapus pair">✕</button>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
-                    <select value={pair.homeTeamId} onChange={e => changeHomeTeam(i, parseInt(e.target.value))}
+                    <select value={pair.homeTeamId != null ? String(pair.homeTeamId) : ''} onChange={e => changeHomeTeam(i, e.target.value)}
                       className="input text-sm w-full appearance-none cursor-pointer">
+                      <option value="">Pilih tim...</option>
                       {selected.map(tid => {
                         const t = getTeamObj(tid)
                         const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
-                        return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
+                        return <option key={tid} value={String(tid)} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
                       })}
                     </select>
                   </div>
                   <span className="text-slate-300 text-xs font-mono shrink-0">vs</span>
                   <div className="relative flex-1">
-                    <select value={pair.awayTeamId} onChange={e => changeAwayTeam(i, parseInt(e.target.value))}
+                    <select value={pair.awayTeamId != null ? String(pair.awayTeamId) : ''} onChange={e => changeAwayTeam(i, e.target.value)}
                       className="input text-sm w-full appearance-none cursor-pointer">
+                      <option value="">Pilih tim...</option>
                       {selected.map(tid => {
                         const t = getTeamObj(tid)
                         const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
-                        return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
+                        return <option key={tid} value={String(tid)} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
                       })}
                     </select>
                   </div>
@@ -2109,118 +2241,7 @@ function SetupBracketModal({ enrolledTeams, seasonId, season, onClose, onSaved }
     )
   }
 
-  return (
-    <div className="card w-full max-w-sm animate-slide-in flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
-        <div>
-          <h2 className="font-display font-bold text-base">Setup Bracket</h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">Langkah {step} dari 3</p>
-        </div>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
-      </div>
-
-      {step === 1 && (
-        <>
-          <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
-            <div>
-              <p className="text-xs text-slate-500 mb-2 font-medium">Mulai dari babak</p>
-              <div className="grid grid-cols-1 gap-1.5">
-                {KO_ROUNDS.map(r => (
-                  <button
-                    key={r.key}
-                    onClick={() => setStage(r.key)}
-                    className={`flex items-center justify-between px-4 py-2.5 rounded-lg border text-sm font-medium transition-all text-left
-                      ${stage === r.key
-                        ? 'bg-brand-50 border-brand-500 text-brand-700'
-                        : 'bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300'}`}
-                  >
-                    <span className="font-display font-semibold">{r.label}</span>
-                    <span className="text-[10px] text-slate-400 font-mono">{teamCount[r.key]} tim</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            {isFinal && finalSeriesType === 'best_of' ? (
-              <div className="p-4 rounded-xl" style={{backgroundColor:'#f8fafc', border:'1px solid #e2e8f0'}}>
-                <p className="text-xs text-slate-500 mb-2 font-medium">Format Final</p>
-                <div className="space-y-1">
-                  <p className="text-sm text-slate-600 font-semibold">Best of {finalBestOf}</p>
-                  <p className="text-[10px] text-slate-400">Seri {finalBestOf} pertandingan, pemenang terbanyak</p>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <p className="text-xs text-slate-500 mb-2 font-medium">Format pertandingan</p>
-                <div className="flex gap-2">
-                  <button onClick={() => setLegs(1)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 1 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>1 Leg</button>
-                  <button onClick={() => setLegs(2)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-display font-semibold border transition-all ${legs === 2 ? 'bg-brand-600 border-brand-500 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-900'}`}>2 Leg</button>
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1.5">
-                  {legs === 1 ? '1 pertandingan per pasangan.' : '2 pertandingan per pasangan (home & away). Pemenang dari agregat.'}
-                </p>
-              </div>
-            )}
-          </div>
-          <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
-            <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
-            <button onClick={() => setStep(2)} disabled={!stage} className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
-              Pilih Tim <ArrowLeft size={13} className="rotate-180" />
-            </button>
-          </div>
-        </>
-      )}
-
-      {step === 2 && (
-        <>
-          <div className="px-5 pt-3 pb-1 shrink-0">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-500">Pilih tim untuk <span className="font-semibold text-slate-800">{KO_ROUNDS.find(r => r.key === stage)?.label}</span></p>
-              <span className={`text-[10px] font-mono ${selected.length > needed ? 'text-accent-red' : selected.length === needed ? 'text-accent-green' : 'text-slate-400'}`}>
-                {selected.length}/{needed}
-              </span>
-            </div>
-            {selected.length > needed && (
-              <p className="text-[10px] text-accent-red mt-1">Terlalu banyak tim. Maksimal {needed} tim untuk babak ini.</p>
-            )}
-          </div>
-
-          <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
-            {teamList.map(t => {
-              const checked = selected.includes(t.id)
-              return (
-                <button key={t.id} onClick={() => toggleTeam(t.id)}
-                  className={`w-full flex items-center gap-3 px-5 py-3 transition-colors text-left ${checked ? 'bg-brand-50' : 'hover:bg-slate-50'}`}>
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-brand-600 overflow-hidden shrink-0">
-                    {t.owner?.avatar_url ? <img src={t.owner.avatar_url} alt="" className="w-full h-full object-cover" /> : t.name[0]}
-                  </div>
-                  <span className="font-medium text-sm flex-1">{t.name}</span>
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-brand-500 border-brand-500' : 'border-slate-300'}`}>
-                    {checked && <Check size={12} className="text-white" />}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
-            <button onClick={() => setStep(1)} className="btn-secondary text-sm px-4">
-              <ArrowLeft size={14} />
-            </button>
-            <button onClick={handleRandom} disabled={saving || !isExact}
-              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
-              🎲 {saving ? 'Menyimpan...' : 'Acak & Generate'}
-            </button>
-            <button onClick={initManualPairs} disabled={!isExact}
-              className="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5">
-              <Swords size={14} /> Atur Manual
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  )
+  return null
 }
 
 // ─── Modal pilih format leg saat generate babak berikutnya ───────────────────
@@ -2720,7 +2741,7 @@ function BcActionRow({ m, isAdmin, onApprove, onScore, onDelete }) {
 
 function ManageKoTeamsModal({ seasonId, season, stage, stageLabel, enrolledTeams, existingMatches, onClose, onSaved }) {
   const teamList = enrolledTeams.map(st => st.team).filter(Boolean)
-  const usedIds = new Set(existingMatches.flatMap(m => [m.home_team_id, m.away_team_id]))
+  const usedIds = new Set(existingMatches.flatMap(m => [Number(m.home_team_id), Number(m.away_team_id)]))
   const existingLegs = existingMatches.some(m => m.leg_number === 2) ? 2 : 1
   const teamCount = { r32: 32, r16: 16, qf: 8, sf: 4, final: 2 }
   const needed = teamCount[stage] ?? 0
@@ -2734,24 +2755,19 @@ function ManageKoTeamsModal({ seasonId, season, stage, stageLabel, enrolledTeams
   const isExact = selected.length === needed
   const tooMany = selected.length > needed
   const tooFew  = selected.length < needed
-  const selectedTeams = teamList.filter(t => selected.includes(t.id))
+  const selectedTeams = teamList.filter(t => selected.includes(Number(t.id)))
   
   const isFinal = stage === 'final'
   const finalSeriesType = season?.final_series_type || 'single'
   const finalBestOf = season?.final_best_of || 1
 
   function toggleTeam(id) {
-    setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+    const nid = Number(id)
+    setSelected(prev => prev.includes(nid) ? prev.filter(x => x !== nid) : [...prev, nid])
   }
 
   function initManualPairs() {
-    const newPairs = []
-    for (let i = 0; i < selected.length; i += 2) {
-      if (selected[i + 1]) {
-        newPairs.push({ homeTeamId: selected[i], awayTeamId: selected[i + 1] })
-      }
-    }
-    setPairs(newPairs)
+    setPairs([])
     setStep(2)
   }
 
@@ -2763,19 +2779,13 @@ function ManageKoTeamsModal({ seasonId, season, stage, stageLabel, enrolledTeams
     })
   }
 
-  function changeHomeTeam(pairIdx, teamId) {
-    setPairs(prev => {
-      const copy = [...prev]
-      copy[pairIdx] = { ...copy[pairIdx], homeTeamId: teamId }
-      return copy
-    })
+  function changeHomeTeam(pairIdx, rawValue) {
+    const tid = rawValue !== '' && rawValue != null ? Number(rawValue) : null
+    setPairs(prev => prev.map((p, i) => i === pairIdx ? { ...p, homeTeamId: tid } : p))
   }
-  function changeAwayTeam(pairIdx, teamId) {
-    setPairs(prev => {
-      const copy = [...prev]
-      copy[pairIdx] = { ...copy[pairIdx], awayTeamId: teamId }
-      return copy
-    })
+  function changeAwayTeam(pairIdx, rawValue) {
+    const tid = rawValue !== '' && rawValue != null ? Number(rawValue) : null
+    setPairs(prev => prev.map((p, i) => i === pairIdx ? { ...p, awayTeamId: tid } : p))
   }
 
   function allTeamsUnique() {
@@ -2821,16 +2831,12 @@ function ManageKoTeamsModal({ seasonId, season, stage, stageLabel, enrolledTeams
     onSaved()
   }
 
-  async function handleRandom() {
+  function handleRandom() {
     if (selected.length < 2) { alert('Pilih minimal 2 tim!'); return }
-    const shuffled = [...selected].sort(() => Math.random() - 0.5)
-    const pairData = []
-    for (let i = 0; i < shuffled.length; i += 2) {
-      if (shuffled[i + 1]) {
-        pairData.push({ homeTeamId: shuffled[i], awayTeamId: shuffled[i + 1] })
-      }
-    }
-    await handleSave(pairData)
+    const count = Math.floor(selected.length / 2)
+    const newPairs = Array.from({ length: count }, () => ({ homeTeamId: null, awayTeamId: null }))
+    setPairs(newPairs)
+    setStep(2)
   }
 
   async function handleManualSave() {
@@ -2838,10 +2844,10 @@ function ManageKoTeamsModal({ seasonId, season, stage, stageLabel, enrolledTeams
     await handleSave(pairs)
   }
 
-  function getTeamObj(id) { return teamList.find(t => t.id === id) }
+  function getTeamObj(id) { return teamList.find(t => Number(t.id) === Number(id)) }
   const usedTeamIds = new Set()
-  pairs.forEach(p => { usedTeamIds.add(p.homeTeamId); usedTeamIds.add(p.awayTeamId) })
-  const unpairedTeams = selectedTeams.filter(t => !usedTeamIds.has(t.id))
+  pairs.forEach(p => { if (p.homeTeamId != null) usedTeamIds.add(p.homeTeamId); if (p.awayTeamId != null) usedTeamIds.add(p.awayTeamId) })
+  const unpairedTeams = selectedTeams.filter(t => !usedTeamIds.has(Number(t.id)))
 
   if (step === 2) {
     return createPortal(
@@ -2857,7 +2863,7 @@ function ManageKoTeamsModal({ seasonId, season, stage, stageLabel, enrolledTeams
             <button onClick={onClose} className="text-slate-400 hover:text-slate-900"><XCircle size={18} /></button>
           </div>
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50/50 shrink-0">
-            <p className="text-xs text-slate-500">Atur pasangan tim. Klik tim untuk memilih pengganti. Tap tombol ⇄ untuk swap home/away.</p>
+            <p className="text-xs text-slate-500">Kosongkan dulu, pilih tim dari dropdown.</p>
             {unpairedTeams.length > 0 && <p className="text-[10px] text-accent-red mt-1">⚠ {unpairedTeams.length} tim belum dipasangkan!</p>}
           </div>
           <div className="divide-y divide-slate-100 overflow-y-auto flex-1">
@@ -2868,25 +2874,33 @@ function ManageKoTeamsModal({ seasonId, season, stage, stageLabel, enrolledTeams
                 <div key={i} className="px-5 py-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Pair {i + 1}</span>
-                    <button onClick={() => swapPair(i)} className="text-slate-300 hover:text-brand-600 transition-colors text-xs px-2 py-0.5 rounded hover:bg-slate-100">⇄ Swap</button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => swapPair(i)} className="text-slate-300 hover:text-brand-600 transition-colors text-xs px-2 py-0.5 rounded hover:bg-slate-100">⇄ Swap</button>
+                      {pairs.length > 1 && (
+                        <button onClick={() => setPairs(prev => prev.filter((_, idx) => idx !== i))}
+                          className="text-slate-300 hover:text-accent-red transition-colors text-xs px-2 py-0.5 rounded hover:bg-red-50">✕</button>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1">
-                      <select value={pair.homeTeamId} onChange={e => changeHomeTeam(i, parseInt(e.target.value))} className="input text-sm w-full appearance-none cursor-pointer">
+                      <select value={pair.homeTeamId != null ? String(pair.homeTeamId) : ''} onChange={e => changeHomeTeam(i, e.target.value)} className="input text-sm w-full appearance-none cursor-pointer">
+                        <option value="">Pilih tim...</option>
                         {selected.map(tid => {
                           const t = getTeamObj(tid)
                           const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
-                          return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
+                          return <option key={tid} value={String(tid)} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
                         })}
                       </select>
                     </div>
                     <span className="text-slate-300 text-xs font-mono shrink-0">vs</span>
                     <div className="relative flex-1">
-                      <select value={pair.awayTeamId} onChange={e => changeAwayTeam(i, parseInt(e.target.value))} className="input text-sm w-full appearance-none cursor-pointer">
+                      <select value={pair.awayTeamId != null ? String(pair.awayTeamId) : ''} onChange={e => changeAwayTeam(i, e.target.value)} className="input text-sm w-full appearance-none cursor-pointer">
+                        <option value="">Pilih tim...</option>
                         {selected.map(tid => {
                           const t = getTeamObj(tid)
                           const isUsedElsewhere = pairs.some((p, pi) => pi !== i && (p.homeTeamId === tid || p.awayTeamId === tid))
-                          return <option key={tid} value={tid} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
+                          return <option key={tid} value={String(tid)} disabled={isUsedElsewhere}>{t?.name} {isUsedElsewhere ? '(terpakai)' : ''}</option>
                         })}
                       </select>
                     </div>
@@ -2962,7 +2976,6 @@ function ManageKoTeamsModal({ seasonId, season, stage, stageLabel, enrolledTeams
         <div className="px-5 py-4 border-t border-slate-200 flex gap-3 shrink-0">
           <button onClick={onClose} className="btn-secondary flex-1 text-sm">Batal</button>
           <button onClick={handleRandom} disabled={saving || !isExact} className="btn-primary flex-1 text-sm">🎲 {saving ? 'Menyimpan...' : 'Acak'}</button>
-          <button onClick={initManualPairs} disabled={!isExact} className="btn-primary flex-1 text-sm"><Swords size={14} /> Atur Manual</button>
         </div>
       </div>
     </div>,
