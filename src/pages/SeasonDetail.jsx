@@ -421,184 +421,142 @@ export default function SeasonDetail() {
 
             const items = []
 
-            if (groups.length > 0) {
-              // Teks petunjuk + info tersisa
-              if (matches.length > 0) {
-                const totalPending = matches.filter(m => m.status !== 'approved').length
-                const totalAll = matches.length
-                items.push(
-                  <div key="hint" className="flex flex-col gap-1">
-                    <span className="text-[11px] font-medium text-accent-green">
-                      {totalPending} pertandingan tersisa, total {totalAll} pertandingan
-                    </span>
-                    <p className="text-xs" style={{color:'#94a3b8'}}>Klik papan skor untuk input hasil, klik nama tim untuk chat</p>
-                  </div>
-                )
-              }
-              // Fase Grup
-              groups.forEach(g => {
-                const groupMatches = matches.filter(m => m.group_id === g)
-                items.push(
-                  <div key={`group-${g}`} className="card overflow-hidden">
-                    <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                      <span className="font-display font-semibold text-sm text-accent-purple">Grup {g}</span>
-                    </div>
-                    <MatchList matches={groupMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                  </div>
-                )
-              })
-
-              // Fase Knockout (champions)
+            // ── helper: render KO section (dipakai champions & cup) ───────────
+            function renderKoSection(stageColorClass) {
               KO_ROUNDS.forEach(ko => {
                 const koMatches = matches.filter(m => m.stage === ko.key)
                 if (koMatches.length === 0) return
-                const isFinal = ko.key === 'final'
+                const isFinalStage = ko.key === 'final'
                 const finalSeriesType = season?.final_series_type || 'single'
-                
-                if (isFinal && finalSeriesType === 'best_of') {
+                if (isFinalStage && finalSeriesType === 'best_of') {
                   const roundNums = [...new Set(koMatches.map(m => m.round))].sort((a, b) => a - b)
                   roundNums.forEach(rn => {
-                    const seriesMatches = koMatches
-                      .filter(m => m.round === rn)
-                      .sort((a, b) => (a.leg_number ?? 0) - (b.leg_number ?? 0))
-                    
+                    const seriesMatches = koMatches.filter(m => m.round === rn).sort((a, b) => (a.leg_number ?? 0) - (b.leg_number ?? 0))
                     let winsA = 0, winsB = 0
-                    seriesMatches.forEach(g => {
-                      if (g.status === 'approved' && g.home_score !== null && g.away_score !== null) {
-                        if (g.home_score > g.away_score) {
-                          if (g.home_team_id === (seriesMatches[0]?.home_team_id)) winsA++
-                          else winsB++
-                        } else if (g.away_score > g.home_score) {
-                          if (g.away_team_id === (seriesMatches[0]?.home_team_id)) winsA++
-                          else winsB++
-                        }
+                    seriesMatches.forEach(gm => {
+                      if (gm.status === 'approved' && gm.home_score !== null && gm.away_score !== null) {
+                        if (gm.home_score > gm.away_score) { if (gm.home_team_id === seriesMatches[0]?.home_team_id) winsA++; else winsB++ }
+                        else if (gm.away_score > gm.home_score) { if (gm.away_team_id === seriesMatches[0]?.home_team_id) winsA++; else winsB++ }
                       }
                     })
-                    
-                    const seriesPending = seriesMatches.filter(m => m.status !== 'approved').length
-                    const seriesTotal = seriesMatches.length
-                    
                     items.push(
                       <div key={`ko-${ko.key}-${rn}`} className="card overflow-hidden">
-                        <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
-                            <span className="text-xs text-slate-400 font-mono">({winsA}-{winsB})</span>
-                          </div>
+                        <div className="px-5 py-3 flex items-center gap-2" style={{borderBottom:'1px solid #e2e8f0',backgroundColor:'#f8fafc'}}>
+                          <span className={`font-display font-semibold text-sm ${stageColorClass}`}>{ko.label}</span>
+                          <span className="text-xs text-slate-400 font-mono">({winsA}-{winsB})</span>
                         </div>
                         <MatchList matches={seriesMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                       </div>
                     )
                   })
                 } else {
-                  const koPending = koMatches.filter(m => m.status !== 'approved').length
-                  const koTotal = koMatches.length
-                  items.push(
-                    <div key={`ko-${ko.key}`} className="card overflow-hidden">
-                      <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                        <div className="flex items-center justify-between">
-                          <span className="font-display font-semibold text-sm text-accent-yellow">{ko.label}</span>
-                          <span className="text-[11px] font-medium text-accent-green">
-                            {koPending} pertandingan tersisa, total {koTotal} pertandingan
-                          </span>
+                  const roundNums = [...new Set(koMatches.map(m => m.round))].sort((a, b) => a - b)
+                  if (roundNums.length > 1) {
+                    roundNums.forEach(rn => {
+                      const pairMatches = koMatches.filter(m => m.round === rn).sort((a, b) => (a.leg_number ?? 0) - (b.leg_number ?? 0))
+                      items.push(
+                        <div key={`ko-${ko.key}-${rn}`} className="card overflow-hidden">
+                          <div className="px-5 py-3" style={{borderBottom:'1px solid #e2e8f0',backgroundColor:'#f8fafc'}}>
+                            <span className={`font-display font-semibold text-sm ${stageColorClass}`}>{ko.label}</span>
+                          </div>
+                          <MatchList matches={pairMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                         </div>
+                      )
+                    })
+                  } else {
+                    items.push(
+                      <div key={`ko-${ko.key}`} className="card overflow-hidden">
+                        <div className="px-5 py-3" style={{borderBottom:'1px solid #e2e8f0',backgroundColor:'#f8fafc'}}>
+                          <span className={`font-display font-semibold text-sm ${stageColorClass}`}>{ko.label}</span>
+                        </div>
+                        <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                       </div>
-                      <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                    </div>
-                  )
+                    )
+                  }
                 }
               })
-            } else if (season.type === 'league' && numDiv > 1) {
-              // Multi-divisi
-              items.push(<MatchDivSlider key="multidiv" matches={matches} teams={teams} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} numDiv={numDiv} />)
-            } else {
-              // Single division / cup
+            }
+
+            if (season.type === 'champions') {
+              // Info tersisa
               if (matches.length > 0) {
                 const totalPending = matches.filter(m => m.status !== 'approved').length
-                const totalAll = matches.length
                 items.push(
                   <div key="hint" className="flex flex-col gap-1">
-                    <span className="text-[11px] font-medium text-accent-green">
-                      {totalPending} pertandingan tersisa, total {totalAll} pertandingan
-                    </span>
+                    <span className="text-[11px] font-medium text-accent-green">{totalPending} pertandingan tersisa, total {matches.length} pertandingan</span>
                     <p className="text-xs" style={{color:'#94a3b8'}}>Klik papan skor untuk input hasil, klik nama tim untuk chat</p>
                   </div>
                 )
               }
-              
+              // Fase Grup
+              const chGroupMatches = matches.filter(m => m.stage === 'group')
+              if (chGroupMatches.length > 0) {
+                items.push(
+                  <div key="fase-group-header" className="flex items-center gap-2 mt-1">
+                    <span className="text-xs font-display font-bold text-accent-purple uppercase tracking-wider">Fase Grup</span>
+                    <div className="flex-1 h-px bg-slate-200" />
+                  </div>
+                )
+                const groupIds = [...new Set(chGroupMatches.map(m => m.group_id).filter(Boolean))].sort()
+                if (groupIds.length > 0) {
+                  groupIds.forEach(g => {
+                    const gMatches = chGroupMatches.filter(m => m.group_id === g)
+                    items.push(
+                      <div key={`group-${g}`} className="card overflow-hidden">
+                        <div className="px-5 py-3" style={{borderBottom:'1px solid #e2e8f0',backgroundColor:'#f8fafc'}}>
+                          <span className="font-display font-semibold text-sm text-accent-purple">Grup {g}</span>
+                        </div>
+                        <MatchList matches={gMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
+                      </div>
+                    )
+                  })
+                } else {
+                  items.push(
+                    <div key="group-all" className="card overflow-hidden">
+                      <div className="px-5 py-3" style={{borderBottom:'1px solid #e2e8f0',backgroundColor:'#f8fafc'}}>
+                        <span className="font-display font-semibold text-sm text-accent-purple">Fase Grup</span>
+                      </div>
+                      <MatchList matches={chGroupMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
+                    </div>
+                  )
+                }
+              }
+              // Fase Knockout
+              const hasChKo = KO_ROUNDS.some(ko => matches.some(m => m.stage === ko.key))
+              if (hasChKo) {
+                items.push(
+                  <div key="fase-ko-header" className="flex items-center gap-2 mt-1">
+                    <span className="text-xs font-display font-bold text-accent-yellow uppercase tracking-wider">Fase Knockout</span>
+                    <div className="flex-1 h-px bg-slate-200" />
+                  </div>
+                )
+                renderKoSection('text-accent-yellow')
+              }
+            } else if (season.type === 'league' && numDiv > 1) {
+              // Multi-divisi
+              items.push(<MatchDivSlider key="multidiv" matches={matches} teams={teams} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} numDiv={numDiv} />)
+            } else {
+              // Single division league atau cup
+              if (matches.length > 0) {
+                const totalPending = matches.filter(m => m.status !== 'approved').length
+                items.push(
+                  <div key="hint" className="flex flex-col gap-1">
+                    <span className="text-[11px] font-medium text-accent-green">{totalPending} pertandingan tersisa, total {matches.length} pertandingan</span>
+                    <p className="text-xs" style={{color:'#94a3b8'}}>Klik papan skor untuk input hasil, klik nama tim untuk chat</p>
+                  </div>
+                )
+              }
               if (season.type === 'cup') {
                 const hasKoStage = matches.some(m => KO_ROUNDS.some(r => r.key === m.stage))
                 if (hasKoStage) {
-                  KO_ROUNDS.forEach(ko => {
-                    const koMatches = matches.filter(m => m.stage === ko.key)
-                    if (koMatches.length === 0) return
-                    const isFinal = ko.key === 'final'
-                    const finalSeriesType = season?.final_series_type || 'single'
-                    
-                    if (isFinal && finalSeriesType === 'best_of') {
-                      const roundNums = [...new Set(koMatches.map(m => m.round))].sort((a, b) => a - b)
-                      roundNums.forEach(rn => {
-                        const seriesMatches = koMatches
-                          .filter(m => m.round === rn)
-                          .sort((a, b) => (a.leg_number ?? 0) - (b.leg_number ?? 0))
-                        
-                        let winsA = 0, winsB = 0
-                        seriesMatches.forEach(g => {
-                          if (g.status === 'approved' && g.home_score !== null && g.away_score !== null) {
-                            if (g.home_score > g.away_score) {
-                              if (g.home_team_id === (seriesMatches[0]?.home_team_id)) winsA++
-                              else winsB++
-                            } else if (g.away_score > g.home_score) {
-                              if (g.away_team_id === (seriesMatches[0]?.home_team_id)) winsA++
-                              else winsB++
-                            }
-                          }
-                        })
-                        
-                        items.push(
-                          <div key={`cup-${ko.key}-${rn}`} className="card overflow-hidden">
-                            <div className="px-5 py-3 flex items-center gap-2" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                              <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
-                              <span className="text-xs text-slate-400 font-mono">({winsA}-{winsB})</span>
-                            </div>
-                            <MatchList matches={seriesMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                          </div>
-                        )
-                      })
-                    } else {
-                      // Kelompokkan per round (pair) dalam babak ini
-                      const roundNums = [...new Set(koMatches.map(m => m.round))].sort((a, b) => a - b)
-                      if (roundNums.length > 1) {
-                        roundNums.forEach(rn => {
-                          const pairMatches = koMatches.filter(m => m.round === rn).sort((a, b) => (a.leg_number ?? 0) - (b.leg_number ?? 0))
-                          items.push(
-                            <div key={`cup-${ko.key}-${rn}`} className="card overflow-hidden">
-                              <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                                <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
-                              </div>
-                              <MatchList matches={pairMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                            </div>
-                          )
-                        })
-                      } else {
-                        items.push(
-                          <div key={`cup-${ko.key}`} className="card overflow-hidden">
-                            <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                              <span className="font-display font-semibold text-sm text-brand-600">{ko.label}</span>
-                            </div>
-                            <MatchList matches={koMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
-                          </div>
-                        )
-                      }
-                    }
-                  })
+                  renderKoSection('text-brand-600')
                 } else {
                   // Fallback: match lama tanpa stage, kelompokkan per round
                   rounds.forEach(r => {
                     const roundMatches = matches.filter(m => m.round === r)
                     items.push(
                       <div key={`round-${r}`} className="card overflow-hidden">
-                        <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
+                        <div className="px-5 py-3" style={{borderBottom:'1px solid #e2e8f0',backgroundColor:'#f8fafc'}}>
                           <span className="font-display font-semibold text-sm text-brand-600">
                             {KO_ROUNDS.find(k => matches.find(m => m.round === r && m.stage === k.key))?.label || stageLabel(r, rounds.length)}
                           </span>
@@ -609,16 +567,13 @@ export default function SeasonDetail() {
                   })
                 }
               } else {
+                // League single division — per pekan
                 rounds.forEach(r => {
                   const roundMatches = matches.filter(m => m.round === r)
                   items.push(
                     <div key={`round-${r}`} className="card overflow-hidden">
-                      <div className="px-5 py-3" style={{borderBottom:"1px solid #e2e8f0",backgroundColor:"#f8fafc"}}>
-                        <span className="font-display font-semibold text-sm text-brand-600">
-                          {season.type === 'cup'
-                            ? (KO_ROUNDS.find(k => matches.find(m => m.round === r && m.stage === k.key))?.label || stageLabel(r, rounds.length))
-                            : `Pekan ${r}`}
-                        </span>
+                      <div className="px-5 py-3" style={{borderBottom:'1px solid #e2e8f0',backgroundColor:'#f8fafc'}}>
+                        <span className="font-display font-semibold text-sm text-brand-600">Pekan {r}</span>
                       </div>
                       <MatchList matches={roundMatches} isAdmin={isAdmin} myTeamId={myTeamId} onUpdate={fetchAll} season={season} />
                     </div>

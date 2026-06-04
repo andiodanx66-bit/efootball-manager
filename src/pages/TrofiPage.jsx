@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Trophy, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Trophy, X, Trash2, ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 
@@ -31,13 +31,15 @@ const defaultForm = {
 function getUniqueSeasonGroups(seasons) {
   const groups = []
   const seen = new Set()
-  seasons.forEach(s => {
+  // seasons di-fetch descending, kita reverse agar index 0 = terlama, index terakhir = terbaru
+  const sorted = [...seasons].reverse()
+  sorted.forEach(s => {
     if (s.season_group && !seen.has(s.season_group)) {
       seen.add(s.season_group)
       groups.push(s.season_group)
     }
   })
-  return groups.reverse()
+  return groups
 }
 
 export default function TrofiPage() {
@@ -47,6 +49,7 @@ export default function TrofiPage() {
   const [teams, setTeams] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editingTrophy, setEditingTrophy] = useState(null)
   const [form, setForm] = useState(defaultForm)
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
@@ -118,10 +121,25 @@ export default function TrofiPage() {
 
   function closeForm() {
     setShowForm(false)
+    setEditingTrophy(null)
     setForm(defaultForm)
     setFile(null)
     setPreview(null)
     setError('')
+  }
+
+  function handleEdit(trophy) {
+    setEditingTrophy(trophy)
+    setForm({
+      title: trophy.title || '',
+      season_group: trophy.season?.season_group || '',
+      season_id: trophy.season?.id || '',
+      team_id: trophy.team?.id || '',
+    })
+    setFile(null)
+    setPreview(trophy.image_url || null)
+    setError('')
+    setShowForm(true)
   }
 
   function handleFileChange(e) {
@@ -137,7 +155,7 @@ export default function TrofiPage() {
       setError('Hanya admin yang bisa menambahkan trofi.')
       return
     }
-    if (!file) {
+    if (!editingTrophy && !file) {
       setError('Gambar piala wajib diupload.')
       return
     }
@@ -146,24 +164,45 @@ export default function TrofiPage() {
     setError('')
 
     try {
-      const compressed = await compressImage(file)
-      const fileName = `trophies/${Date.now()}-${Math.random().toString(36).slice(2)}.webp`
-      const { error: uploadError } = await supabase.storage
-        .from('competition')
-        .upload(fileName, compressed, { contentType: 'image/webp' })
-      if (uploadError) throw uploadError
+      let image_url = editingTrophy?.image_url || null
 
-      const { data } = supabase.storage.from('competition').getPublicUrl(fileName)
-      const image_url = `${data.publicUrl}?t=${Date.now()}`
+      if (file) {
+        const compressed = await compressImage(file)
+        const fileName = `trophies/${Date.now()}-${Math.random().toString(36).slice(2)}.webp`
+        const { error: uploadError } = await supabase.storage
+          .from('competition')
+          .upload(fileName, compressed, { contentType: 'image/webp' })
+        if (uploadError) throw uploadError
+        const { data } = supabase.storage.from('competition').getPublicUrl(fileName)
+        image_url = `${data.publicUrl}?t=${Date.now()}`
 
-      const { error: insertError } = await supabase.from('trophies').insert({
+        // Hapus gambar lama kalau edit
+        if (editingTrophy?.image_url) {
+          try {
+            const url = new URL(editingTrophy.image_url)
+            const pathParts = url.pathname.split('/storage/v1/object/public/competition/')
+            if (pathParts.length === 2) {
+              const filePath = pathParts[1].split('?')[0]
+              await supabase.storage.from('competition').remove([filePath])
+            }
+          } catch (_) {}
+        }
+      }
+
+      const payload = {
         title: form.title.trim() || 'Juara',
         season_id: form.season_id,
         team_id: form.team_id,
         image_url,
-        created_by: user.id,
-      })
-      if (insertError) throw insertError
+      }
+
+      if (editingTrophy) {
+        const { error: updateError } = await supabase.from('trophies').update(payload).eq('id', editingTrophy.id)
+        if (updateError) throw updateError
+      } else {
+        const { error: insertError } = await supabase.from('trophies').insert({ ...payload, created_by: user.id })
+        if (insertError) throw insertError
+      }
 
       closeForm()
       fetchData()
@@ -220,10 +259,10 @@ export default function TrofiPage() {
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={nextSeasonGroup}
-            disabled={currentGroupIndex === seasonGroups.length - 1}
+            onClick={prevSeasonGroup}
+            disabled={currentGroupIndex === 0}
             className={`p-2 rounded-lg transition-all ${
-              currentGroupIndex === seasonGroups.length - 1
+              currentGroupIndex === 0
                 ? 'text-ink-faint cursor-not-allowed'
                 : 'text-ink hover:bg-surface-muted'
             }`}
@@ -236,10 +275,10 @@ export default function TrofiPage() {
           </div>
           <button
             type="button"
-            onClick={prevSeasonGroup}
-            disabled={currentGroupIndex === 0}
+            onClick={nextSeasonGroup}
+            disabled={currentGroupIndex === seasonGroups.length - 1}
             className={`p-2 rounded-lg transition-all ${
-              currentGroupIndex === 0
+              currentGroupIndex === seasonGroups.length - 1
                 ? 'text-ink-faint cursor-not-allowed'
                 : 'text-ink hover:bg-surface-muted'
             }`}
@@ -279,14 +318,24 @@ export default function TrofiPage() {
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-ink-muted truncate flex-1">{item.season?.name || '-'}</p>
                   {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(item)}
-                      className="p-1 rounded text-ink-faint hover:text-accent-red hover:bg-accent-red/10 transition-all"
-                      title="Hapus trofi"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(item)}
+                        className="p-1 rounded text-ink-faint hover:text-brand-600 hover:bg-brand-50 transition-all"
+                        title="Edit trofi"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(item)}
+                        className="p-1 rounded text-ink-faint hover:text-accent-red hover:bg-accent-red/10 transition-all"
+                        title="Hapus trofi"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -301,7 +350,7 @@ export default function TrofiPage() {
             <div className="flex items-center justify-between mb-5">
               <h2 className="font-display font-bold text-lg flex items-center gap-2 text-ink">
                 <Trophy size={18} className="text-brand-600" />
-                Tambah Trofi
+                {editingTrophy ? 'Edit Trofi' : 'Tambah Trofi'}
               </h2>
               <button
                 type="button"
@@ -397,7 +446,7 @@ export default function TrofiPage() {
               </div>
 
               <button type="submit" disabled={saving} className="btn-primary w-full text-sm">
-                {saving ? 'Menyimpan...' : 'Simpan Trofi'}
+                {saving ? 'Menyimpan...' : editingTrophy ? 'Simpan Perubahan' : 'Simpan Trofi'}
               </button>
             </form>
           </div>
